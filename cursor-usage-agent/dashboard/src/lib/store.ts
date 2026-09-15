@@ -290,7 +290,53 @@ export async function heartbeat(token: string, agentVersion?: string) {
     RETURNING *
   `;
   if (!rows[0]) throw new Error('Unknown device');
-  return mapDevice(rows[0]);
+  const device = mapDevice(rows[0]);
+  const requestedAt = await getSyncRequestedAt();
+  let syncNow = false;
+  if (requestedAt) {
+    const latest = await sql<{ timestamp: Date | string }[]>`
+      SELECT timestamp FROM snapshots
+      WHERE device_id = ${device.id}
+      ORDER BY timestamp DESC
+      LIMIT 1
+    `;
+    const last = latest[0]?.timestamp
+      ? new Date(latest[0].timestamp).getTime()
+      : 0;
+    syncNow = !Number.isFinite(last) || last < requestedAt.getTime();
+  }
+  return { device, syncNow, requestedAt: requestedAt?.toISOString() ?? null };
+}
+
+export async function getSyncRequestedAt(): Promise<Date | null> {
+  await ready();
+  const sql = getSql();
+  const rows = await sql<{ value: string }[]>`
+    SELECT value FROM hub_meta WHERE key = 'sync_requested_at' LIMIT 1
+  `;
+  if (!rows[0]?.value) return null;
+  const t = new Date(rows[0].value);
+  return Number.isFinite(t.getTime()) ? t : null;
+}
+
+export async function requestCompanySync(): Promise<{
+  requestedAt: string;
+  deviceCount: number;
+}> {
+  await ready();
+  const sql = getSql();
+  const requestedAt = new Date().toISOString();
+  await sql`
+    INSERT INTO hub_meta (key, value, updated_at)
+    VALUES ('sync_requested_at', ${requestedAt}, ${requestedAt})
+    ON CONFLICT (key) DO UPDATE SET
+      value = EXCLUDED.value,
+      updated_at = EXCLUDED.updated_at
+  `;
+  const [{ count }] = await sql<{ count: string }[]>`
+    SELECT COUNT(*)::text AS count FROM devices
+  `;
+  return { requestedAt, deviceCount: Number(count) };
 }
 
 export async function saveUsageReport(

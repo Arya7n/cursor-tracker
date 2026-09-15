@@ -10,6 +10,7 @@ export interface AgentHubConfig {
   deviceId?: string;
   deviceToken?: string;
   employeeId?: string;
+  lastSyncAt?: string;
 }
 
 function configDir(): string {
@@ -40,6 +41,7 @@ export function loadHubConfig(): AgentHubConfig | null {
     deviceId: file.deviceId,
     deviceToken: file.deviceToken,
     employeeId: file.employeeId,
+    lastSyncAt: file.lastSyncAt,
   };
 }
 
@@ -114,6 +116,55 @@ async function postJson(
     throw new Error(String(json.error || `HTTP ${res.status}`));
   }
   return json;
+}
+
+const REGULAR_SYNC_MS = 20 * 60 * 1000;
+
+function markSynced(cfg: AgentHubConfig) {
+  saveHubConfig({
+    ...cfg,
+    lastSyncAt: new Date().toISOString(),
+  });
+}
+
+export async function tickHub(): Promise<{
+  action: 'synced' | 'idle';
+  enrolled?: boolean;
+  employeeId?: string;
+  deviceId?: string;
+  snapshotOk?: boolean;
+}> {
+  const cfg = loadHubConfig();
+  if (!cfg) {
+    throw new Error(
+      'Not configured. Set CURSOR_USAGE_SERVER and CURSOR_USAGE_ENROLLMENT_SECRET, then run: npm run enroll',
+    );
+  }
+
+  let syncNow = false;
+  if (cfg.deviceToken) {
+    try {
+      const hb = await postJson(`${cfg.serverUrl}/api/agents/heartbeat`, {
+        agentVersion: AGENT_VERSION,
+      }, {
+        Authorization: `Bearer ${cfg.deviceToken}`,
+      });
+      syncNow = Boolean(hb.syncNow);
+    } catch {
+      syncNow = false;
+    }
+  }
+
+  const last = cfg.lastSyncAt ? Date.parse(cfg.lastSyncAt) : 0;
+  const due = !Number.isFinite(last) || last <= 0 || Date.now() - last >= REGULAR_SYNC_MS;
+  if (!cfg.deviceToken || syncNow || due) {
+    const result = await syncToHub();
+    const latest = loadHubConfig();
+    if (latest) markSynced(latest);
+    return { action: 'synced', ...result };
+  }
+
+  return { action: 'idle' };
 }
 
 export async function enrollWithHub(

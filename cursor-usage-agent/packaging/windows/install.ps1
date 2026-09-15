@@ -64,7 +64,7 @@ $wrapper = Join-Path $installDir "sync-task.cmd"
 @(
   "@echo off"
   "cd /d `"$installDir`""
-  "call npm run sync"
+  "call npm run tick"
 ) | Set-Content -Path $wrapper -Encoding ASCII
 
 $prevEap = $ErrorActionPreference
@@ -72,14 +72,14 @@ $ErrorActionPreference = "SilentlyContinue"
 cmd.exe /c "schtasks /Delete /TN $taskName /F" | Out-Null
 $ErrorActionPreference = $prevEap
 
-cmd.exe /c "schtasks /Create /TN $taskName /TR `"$wrapper`" /SC MINUTE /MO 20 /F"
+cmd.exe /c "schtasks /Create /TN $taskName /TR `"$wrapper`" /SC MINUTE /MO 1 /F"
 if ($LASTEXITCODE -ne 0) {
   Write-Host ""
-  Write-Host "Enroll succeeded, but the 20-minute scheduled task was not created." -ForegroundColor Yellow
+  Write-Host "Enroll succeeded, but the scheduled task was not created." -ForegroundColor Yellow
   Write-Host "Manual sync:  cd `"$installDir`"; npm run sync"
 } else {
   Write-Host ""
-  Write-Host "Installed. This PC will sync usage about every 20 minutes."
+  Write-Host "Installed. This PC checks in every minute and reports usage about every 20 minutes, or right away when an admin clicks Sync now."
 }
 
 Write-Host "Dashboard: $Server"

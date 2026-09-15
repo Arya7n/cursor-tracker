@@ -8,7 +8,7 @@ import {
   getMachineInfo,
   runFullScan,
 } from './collectors/scan.js';
-import { enrollWithHub, saveHubConfig, syncToHub } from './collectors/sync.js';
+import { enrollWithHub, saveHubConfig, syncToHub, tickHub } from './collectors/sync.js';
 import { discoverUsage } from './cursor/cursor-usage.js';
 
 const program = new Command();
@@ -208,6 +208,14 @@ program
   .description('Scan this PC and upload usage to the company dashboard')
   .action(async () => {
     const result = await syncToHub();
+    console.log(JSON.stringify({ ok: true, ...result }, null, 2));
+  });
+
+program
+  .command('tick')
+  .description('Check the hub for a sync-now request, or run a regular 20-minute sync')
+  .action(async () => {
+    const result = await tickHub();
     console.log(JSON.stringify({ ok: true, ...result }, null, 2));
   });
 

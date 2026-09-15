@@ -14,14 +14,15 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const device = await heartbeat(
+    const result = await heartbeat(
       token,
       typeof body.agentVersion === 'string' ? body.agentVersion : undefined,
     );
     return Response.json({
       ok: true,
-      deviceId: device.id,
-      lastSeenAt: device.lastSeenAt,
+      deviceId: result.device.id,
+      lastSeenAt: result.device.lastSeenAt,
+      syncNow: result.syncNow,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Heartbeat failed';

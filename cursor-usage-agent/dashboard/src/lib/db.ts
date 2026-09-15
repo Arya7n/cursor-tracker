@@ -88,4 +88,11 @@ async function runMigrations() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS snapshots_employee_ts ON snapshots (employee_id, timestamp DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS devices_token_hash ON devices (token_hash)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS hub_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

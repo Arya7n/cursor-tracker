@@ -13,6 +13,7 @@
     "snapshot": "node --experimental-sqlite --import tsx src/main.ts snapshot",
     "enroll": "node --experimental-sqlite --import tsx src/main.ts enroll",
     "sync": "node --experimental-sqlite --import tsx src/main.ts sync",
+    "tick": "node --experimental-sqlite --import tsx src/main.ts tick",
     "build": "tsc -p tsconfig.json",
     "cursor-agent": "node --experimental-sqlite --import tsx src/main.ts"
   },

@@ -47,6 +47,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortId>('name');
   const [page, setPage] = useState(1);
@@ -70,14 +71,26 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  const syncThisPc = useCallback(async () => {
+  const syncNow = useCallback(async () => {
     setSyncing(true);
     setError(null);
+    setSyncNote(null);
     try {
-      const res = await fetch('/api/hub/sync-local', { method: 'POST' });
+      const res = await fetch('/api/hub/sync-now', { method: 'POST' });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Sync failed');
+      const devices = Number(json.deviceCount) || 0;
+      setSyncNote(
+        devices > 1
+          ? `Asked ${devices} devices to report. This PC updates now; others check in within a minute.`
+          : 'This PC synced. Other enrolled PCs report when their agent checks in.',
+      );
       await load(true);
+      setSyncing(false);
+      for (let i = 0; i < 6; i += 1) {
+        await new Promise((r) => window.setTimeout(r, 4000));
+        await load(true);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sync failed');
     } finally {
@@ -158,11 +171,11 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 gap-2 sm:flex">
             <button
               type="button"
-              onClick={() => void syncThisPc()}
+              onClick={() => void syncNow()}
               disabled={syncing}
               className="rounded-lg bg-teal-800 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700 disabled:opacity-50 sm:px-4"
             >
-              {syncing ? 'Syncing…' : 'Sync this PC'}
+              {syncing ? 'Syncing…' : 'Sync now'}
             </button>
             <button
               type="button"
@@ -175,6 +188,12 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {syncNote ? (
+        <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+          {syncNote}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
@@ -440,7 +459,7 @@ function EmptyState() {
     <div className="px-5 py-12 text-center">
       <p className="text-sm font-medium text-zinc-800">Waiting for the first sync</p>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500">
-        Click <strong>Sync this PC</strong>, or send teammates to the{' '}
+        Click <strong>Sync now</strong>, or send teammates to the{' '}
         <a href="/install" className="text-teal-800 underline">
           install page
         </a>
