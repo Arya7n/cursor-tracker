@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Logs / OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Drizzle / local DB
+*.db
+drizzle/meta/
+
+# Misc
+.turbo
+*.tsbuildinfo
