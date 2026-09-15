@@ -19,6 +19,10 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+That starts **Postgres** and the dashboard. Data lives in the `pg-data` volume.
+
+For **Vercel**: create a free [Neon](https://neon.tech) Postgres database, set `DATABASE_URL` (and `ENROLLMENT_SECRET` / admin env) in the Vercel project, deploy the `dashboard` folder. Do not use the JSON file store on Vercel.
+
 Dashboard listens on port **3000**.
 
 Give it a **stable URL**:

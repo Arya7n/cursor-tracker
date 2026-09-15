@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ensureSchema, getSql } from './db';
 import { cursorUsagePercent } from './percent';
 
 export interface Employee {
@@ -35,49 +36,56 @@ export interface UsageSnapshot {
   createdAt: string;
 }
 
-interface StoreFile {
-  employees: Employee[];
-  devices: Device[];
-  snapshots: UsageSnapshot[];
+function iso(v: unknown): string {
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === 'string') return v;
+  return new Date().toISOString();
 }
 
-function storePath() {
-  return join(process.cwd(), 'data', 'company-store.json');
+function str(v: unknown): string | null {
+  return typeof v === 'string' && v ? v : null;
 }
 
-function emptyStore(): StoreFile {
-  return { employees: [], devices: [], snapshots: [] };
+function mapEmployee(row: Record<string, unknown>): Employee {
+  return {
+    id: String(row.id),
+    email: String(row.email),
+    name: String(row.name),
+    department: String(row.department),
+    status: row.status === 'inactive' ? 'inactive' : 'active',
+    createdAt: iso(row.created_at),
+  };
 }
 
-function readStore(): StoreFile {
-  try {
-    const raw = readFileSync(storePath(), 'utf8');
-    const parsed = JSON.parse(raw) as StoreFile;
-    return {
-      employees: parsed.employees ?? [],
-      devices: parsed.devices ?? [],
-      snapshots: parsed.snapshots ?? [],
-    };
-  } catch {
-    return emptyStore();
-  }
+function mapDevice(row: Record<string, unknown>): Device {
+  return {
+    id: String(row.id),
+    employeeId: String(row.employee_id),
+    deviceName: String(row.device_name),
+    operatingSystem: String(row.operating_system),
+    architecture: String(row.architecture),
+    agentVersion: String(row.agent_version),
+    cursorVersion: row.cursor_version == null ? null : String(row.cursor_version),
+    tokenHash: String(row.token_hash),
+    lastSeenAt: iso(row.last_seen_at),
+    createdAt: iso(row.created_at),
+  };
 }
 
-function writeStore(store: StoreFile) {
-  const file = storePath();
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(store, null, 2), 'utf8');
-}
-
-let chain = Promise.resolve();
-
-function locked<T>(fn: () => T): Promise<T> {
-  const next = chain.then(() => fn());
-  chain = next.then(
-    () => undefined,
-    () => undefined,
-  );
-  return next;
+function mapSnapshot(row: Record<string, unknown>): UsageSnapshot {
+  const usageData =
+    typeof row.usage_data === 'object' && row.usage_data
+      ? (row.usage_data as Record<string, unknown>)
+      : {};
+  return {
+    id: String(row.id),
+    employeeId: String(row.employee_id),
+    deviceId: String(row.device_id),
+    timestamp: iso(row.timestamp),
+    billingPeriod: row.billing_period == null ? null : String(row.billing_period),
+    usageData,
+    createdAt: iso(row.created_at),
+  };
 }
 
 export function hashToken(token: string): string {
@@ -100,6 +108,65 @@ export function enrollmentSecret(): string {
   );
 }
 
+let imported = false;
+
+async function ready() {
+  await ensureSchema();
+  if (!imported) {
+    imported = true;
+    await importJsonIfEmpty();
+  }
+}
+
+async function importJsonIfEmpty() {
+  const sql = getSql();
+  const [{ count }] = await sql<{ count: string }[]>`
+    SELECT COUNT(*)::text AS count FROM employees
+  `;
+  if (Number(count) > 0) return;
+  try {
+    const raw = readFileSync(join(process.cwd(), 'data', 'company-store.json'), 'utf8');
+    const parsed = JSON.parse(raw) as {
+      employees?: Employee[];
+      devices?: Device[];
+      snapshots?: UsageSnapshot[];
+    };
+    for (const e of parsed.employees ?? []) {
+      await sql`
+        INSERT INTO employees (id, email, name, department, status, created_at)
+        VALUES (${e.id}, ${e.email}, ${e.name}, ${e.department}, ${e.status}, ${e.createdAt})
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
+    for (const d of parsed.devices ?? []) {
+      await sql`
+        INSERT INTO devices (
+          id, employee_id, device_name, operating_system, architecture,
+          agent_version, cursor_version, token_hash, last_seen_at, created_at
+        )
+        VALUES (
+          ${d.id}, ${d.employeeId}, ${d.deviceName}, ${d.operatingSystem},
+          ${d.architecture}, ${d.agentVersion}, ${d.cursorVersion}, ${d.tokenHash},
+          ${d.lastSeenAt}, ${d.createdAt}
+        )
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
+    for (const s of parsed.snapshots ?? []) {
+      await sql`
+        INSERT INTO snapshots (id, employee_id, device_id, timestamp, billing_period, usage_data, created_at)
+        VALUES (
+          ${s.id}, ${s.employeeId}, ${s.deviceId}, ${s.timestamp}, ${s.billingPeriod},
+          ${sql.json(s.usageData as never)}, ${s.createdAt}
+        )
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
+  } catch {
+    /* no local JSON to import */
+  }
+}
+
 export async function registerDevice(input: {
   enrollmentSecret: string;
   hostname: string;
@@ -113,34 +180,66 @@ export async function registerDevice(input: {
   if (!input.enrollmentSecret || input.enrollmentSecret !== enrollmentSecret()) {
     throw new Error('Invalid enrollment secret');
   }
+  await ready();
 
-  return locked(() => {
-    const store = readStore();
-    const email = (input.email || `unknown@${input.hostname}`).toLowerCase();
-    const name = email.split('@')[0] || input.hostname;
+  const email = (input.email || `unknown@${input.hostname}`).toLowerCase();
+  const name = email.split('@')[0] || input.hostname;
+  const token = newDeviceToken();
+  const now = new Date().toISOString();
+  const sql = getSql();
 
-    let employee = store.employees.find((e) => e.email === email);
-    if (!employee) {
+  return sql.begin(async (txn) => {
+    const existingEmp = await txn<Record<string, unknown>[]>`
+      SELECT * FROM employees WHERE email = ${email} LIMIT 1
+    `;
+    let employee: Employee;
+    if (existingEmp[0]) {
+      const row = existingEmp[0];
+      await txn`UPDATE employees SET status = 'active' WHERE id = ${row.id as string}`;
+      employee = mapEmployee({ ...row, status: 'active' });
+    } else {
       employee = {
         id: newId('emp'),
         email,
         name,
         department: 'unassigned',
         status: 'active',
-        createdAt: new Date().toISOString(),
+        createdAt: now,
       };
-      store.employees.push(employee);
-    } else {
-      employee.status = 'active';
+      await txn`
+        INSERT INTO employees (id, email, name, department, status, created_at)
+        VALUES (${employee.id}, ${employee.email}, ${employee.name}, ${employee.department}, ${employee.status}, ${employee.createdAt})
+      `;
     }
 
-    let device = store.devices.find(
-      (d) => d.employeeId === employee!.id && d.deviceName === input.hostname,
-    );
-    const token = newDeviceToken();
-    const now = new Date().toISOString();
-
-    if (!device) {
+    const existingDev = await txn<Record<string, unknown>[]>`
+      SELECT * FROM devices
+      WHERE employee_id = ${employee.id} AND device_name = ${input.hostname}
+      LIMIT 1
+    `;
+    let device: Device;
+    if (existingDev[0]) {
+      const id = String(existingDev[0].id);
+      await txn`
+        UPDATE devices SET
+          token_hash = ${hashToken(token)},
+          agent_version = ${input.agentVersion},
+          cursor_version = ${input.cursorVersion},
+          operating_system = ${input.os},
+          architecture = ${input.architecture},
+          last_seen_at = ${now}
+        WHERE id = ${id}
+      `;
+      device = mapDevice({
+        ...existingDev[0],
+        token_hash: hashToken(token),
+        agent_version: input.agentVersion,
+        cursor_version: input.cursorVersion,
+        operating_system: input.os,
+        architecture: input.architecture,
+        last_seen_at: now,
+      });
+    } else {
       device = {
         id: newId('dev'),
         employeeId: employee.id,
@@ -153,67 +252,83 @@ export async function registerDevice(input: {
         lastSeenAt: now,
         createdAt: now,
       };
-      store.devices.push(device);
-    } else {
-      device.tokenHash = hashToken(token);
-      device.agentVersion = input.agentVersion;
-      device.cursorVersion = input.cursorVersion;
-      device.operatingSystem = input.os;
-      device.lastSeenAt = now;
+      await txn`
+        INSERT INTO devices (
+          id, employee_id, device_name, operating_system, architecture,
+          agent_version, cursor_version, token_hash, last_seen_at, created_at
+        )
+        VALUES (
+          ${device.id}, ${device.employeeId}, ${device.deviceName}, ${device.operatingSystem},
+          ${device.architecture}, ${device.agentVersion}, ${device.cursorVersion}, ${device.tokenHash},
+          ${device.lastSeenAt}, ${device.createdAt}
+        )
+      `;
     }
-
-    writeStore(store);
     return { employee, device, deviceToken: token };
   });
 }
 
 export async function findDeviceByToken(token: string): Promise<Device | null> {
-  return locked(() => {
-    const store = readStore();
-    const hashed = hashToken(token);
-    return store.devices.find((d) => d.tokenHash === hashed) ?? null;
-  });
+  await ready();
+  const sql = getSql();
+  const rows = await sql<Record<string, unknown>[]>`
+    SELECT * FROM devices WHERE token_hash = ${hashToken(token)} LIMIT 1
+  `;
+  return rows[0] ? mapDevice(rows[0]) : null;
 }
 
 export async function heartbeat(token: string, agentVersion?: string) {
-  return locked(() => {
-    const store = readStore();
-    const hashed = hashToken(token);
-    const device = store.devices.find((d) => d.tokenHash === hashed);
-    if (!device) throw new Error('Unknown device');
-    device.lastSeenAt = new Date().toISOString();
-    if (agentVersion) device.agentVersion = agentVersion;
-    writeStore(store);
-    return device;
-  });
+  await ready();
+  const sql = getSql();
+  const hashed = hashToken(token);
+  const now = new Date().toISOString();
+  const rows = await sql<Record<string, unknown>[]>`
+    UPDATE devices SET
+      last_seen_at = ${now},
+      agent_version = COALESCE(${agentVersion ?? null}, agent_version)
+    WHERE token_hash = ${hashed}
+    RETURNING *
+  `;
+  if (!rows[0]) throw new Error('Unknown device');
+  return mapDevice(rows[0]);
 }
 
 export async function saveUsageReport(
   token: string,
   payload: Record<string, unknown>,
 ) {
-  return locked(() => {
-    const store = readStore();
-    const hashed = hashToken(token);
-    const device = store.devices.find((d) => d.tokenHash === hashed);
-    if (!device) throw new Error('Unknown device');
-
-    const employee = store.employees.find((e) => e.id === device.employeeId);
-    if (!employee) throw new Error('Unknown employee');
+  await ready();
+  const hashed = hashToken(token);
+  const sql = getSql();
+  return sql.begin(async (txn) => {
+    const devices = await txn<Record<string, unknown>[]>`
+      SELECT * FROM devices WHERE token_hash = ${hashed} LIMIT 1
+    `;
+    if (!devices[0]) throw new Error('Unknown device');
+    const device = mapDevice(devices[0]);
+    const employees = await txn<Record<string, unknown>[]>`
+      SELECT * FROM employees WHERE id = ${device.employeeId} LIMIT 1
+    `;
+    if (!employees[0]) throw new Error('Unknown employee');
+    const employee = mapEmployee(employees[0]);
 
     const now = new Date().toISOString();
-    device.lastSeenAt = now;
-    if (typeof payload.agentVersion === 'string') {
-      device.agentVersion = payload.agentVersion;
-    }
-    if (typeof payload.cursorVersion === 'string') {
-      device.cursorVersion = payload.cursorVersion;
-    }
+    const agentVersion =
+      typeof payload.agentVersion === 'string' ? payload.agentVersion : null;
+    const cursorVersion =
+      typeof payload.cursorVersion === 'string' ? payload.cursorVersion : null;
+
+    await txn`
+      UPDATE devices SET
+        last_seen_at = ${now},
+        agent_version = COALESCE(${agentVersion}, agent_version),
+        cursor_version = COALESCE(${cursorVersion}, cursor_version)
+      WHERE id = ${device.id}
+    `;
 
     const billing = payload.billingCycle as
       | { start?: string; end?: string }
       | undefined;
-
     const snapshot: UsageSnapshot = {
       id: newId('snap'),
       employeeId: employee.id,
@@ -223,105 +338,126 @@ export async function saveUsageReport(
       usageData: payload,
       createdAt: now,
     };
-    store.snapshots.push(snapshot);
-    if (store.snapshots.length > 5000) {
-      store.snapshots = store.snapshots.slice(-4000);
-    }
-
-    writeStore(store);
+    await txn`
+      INSERT INTO snapshots (id, employee_id, device_id, timestamp, billing_period, usage_data, created_at)
+      VALUES (
+        ${snapshot.id}, ${snapshot.employeeId}, ${snapshot.deviceId}, ${snapshot.timestamp},
+        ${snapshot.billingPeriod}, ${txn.json(payload as never)}, ${snapshot.createdAt}
+      )
+    `;
+    await txn`
+      DELETE FROM snapshots WHERE id IN (
+        SELECT id FROM snapshots ORDER BY created_at DESC OFFSET 4000
+      )
+    `;
     return { employee, device, snapshot };
   });
 }
 
 export async function overview() {
-  return locked(() => {
-    const store = readStore();
-    const latestByEmployee = new Map<string, UsageSnapshot>();
-    for (const snap of store.snapshots) {
-      const prev = latestByEmployee.get(snap.employeeId);
-      if (!prev || snap.timestamp > prev.timestamp) {
-        latestByEmployee.set(snap.employeeId, snap);
-      }
-    }
+  await ready();
+  const sql = getSql();
+  const employees = (await sql<Record<string, unknown>[]>`SELECT * FROM employees`).map(
+    mapEmployee,
+  );
+  const devices = (await sql<Record<string, unknown>[]>`SELECT * FROM devices`).map(
+    mapDevice,
+  );
+  const latestRows = await sql<Record<string, unknown>[]>`
+    SELECT DISTINCT ON (employee_id) *
+    FROM snapshots
+    ORDER BY employee_id, timestamp DESC
+  `;
+  const latestByEmployee = new Map<string, UsageSnapshot>();
+  for (const row of latestRows) {
+    const snap = mapSnapshot(row);
+    latestByEmployee.set(snap.employeeId, snap);
+  }
 
-    const rows = store.employees.map((emp) => {
-      const devices = store.devices.filter((d) => d.employeeId === emp.id);
-      const latest = latestByEmployee.get(emp.id);
-      const usage = (latest?.usageData?.usage ?? {}) as Record<string, unknown>;
-      const billing = (latest?.usageData?.billingCycle ?? {}) as Record<
-        string,
-        unknown
-      >;
-      const lastSeen = devices
-        .map((d) => d.lastSeenAt)
-        .sort()
-        .at(-1);
-      return {
-        id: emp.id,
-        email: emp.email,
-        name: emp.name,
-        plan: (latest?.usageData?.plan as string) || null,
-        percent: cursorUsagePercent(usage),
-        billingCycleStart: str(billing.start),
-        billingCycleEnd: str(billing.end),
-        lastSeenAt: lastSeen ?? null,
-        deviceCount: devices.length,
-        cursorVersion: devices[0]?.cursorVersion ?? null,
-      };
-    });
-
-    const percents = rows
-      .map((r) => r.percent)
-      .filter((n): n is number => n != null);
-    const activeCutoff = Date.now() - 24 * 60 * 60 * 1000;
-    const active = rows.filter(
-      (r) => r.lastSeenAt && new Date(r.lastSeenAt).getTime() >= activeCutoff,
-    ).length;
-
+  const rows = employees.map((emp) => {
+    const empDevices = devices.filter((d) => d.employeeId === emp.id);
+    const latest = latestByEmployee.get(emp.id);
+    const usage = (latest?.usageData?.usage ?? {}) as Record<string, unknown>;
+    const billing = (latest?.usageData?.billingCycle ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const lastSeen = empDevices
+      .map((d) => d.lastSeenAt)
+      .sort()
+      .at(-1);
     return {
-      totals: {
-        developers: store.employees.length,
-        activeDevelopers: active,
-        devices: store.devices.length,
-        averageUsagePercent:
-          percents.length > 0
-            ? percents.reduce((a, b) => a + b, 0) / percents.length
-            : null,
-        highestUsagePercent: percents.length ? Math.max(...percents) : null,
-        lowestUsagePercent: percents.length ? Math.min(...percents) : null,
-      },
-      developers: rows.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1)),
+      id: emp.id,
+      email: emp.email,
+      name: emp.name,
+      plan: (latest?.usageData?.plan as string) || null,
+      percent: cursorUsagePercent(usage),
+      billingCycleStart: str(billing.start),
+      billingCycleEnd: str(billing.end),
+      lastSeenAt: lastSeen ?? null,
+      deviceCount: empDevices.length,
+      cursorVersion: empDevices[0]?.cursorVersion ?? null,
     };
   });
+
+  const percents = rows
+    .map((r) => r.percent)
+    .filter((n): n is number => n != null);
+  const activeCutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const active = rows.filter(
+    (r) => r.lastSeenAt && new Date(r.lastSeenAt).getTime() >= activeCutoff,
+  ).length;
+
+  return {
+    totals: {
+      developers: employees.length,
+      activeDevelopers: active,
+      devices: devices.length,
+      averageUsagePercent:
+        percents.length > 0
+          ? percents.reduce((a, b) => a + b, 0) / percents.length
+          : null,
+      highestUsagePercent: percents.length ? Math.max(...percents) : null,
+      lowestUsagePercent: percents.length ? Math.min(...percents) : null,
+    },
+    developers: rows.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1)),
+  };
 }
 
 export async function employeeDetail(id: string) {
-  return locked(() => {
-    const store = readStore();
-    const employee = store.employees.find((e) => e.id === id);
-    if (!employee) return null;
-    const devices = store.devices.filter((d) => d.employeeId === id);
-    const snapshots = store.snapshots
-      .filter((s) => s.employeeId === id)
-      .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-      .slice(0, 50)
-      .map((s) => ({
-        id: s.id,
-        timestamp: s.timestamp,
-        billingPeriod: s.billingPeriod,
-        billingCycle: s.usageData.billingCycle ?? null,
-        plan: (s.usageData.plan as string) || null,
-        usage: s.usageData.usage ?? s.usageData,
-        deviceId: s.deviceId,
-      }));
-    return { employee, devices: devices.map(({ tokenHash: _, ...d }) => d), snapshots };
+  await ready();
+  const sql = getSql();
+  const empRows = await sql<Record<string, unknown>[]>`
+    SELECT * FROM employees WHERE id = ${id} LIMIT 1
+  `;
+  if (!empRows[0]) return null;
+  const employee = mapEmployee(empRows[0]);
+  const devices = (
+    await sql<Record<string, unknown>[]>`
+      SELECT * FROM devices WHERE employee_id = ${id}
+    `
+  ).map(mapDevice);
+  const snapshots = (
+    await sql<Record<string, unknown>[]>`
+      SELECT * FROM snapshots WHERE employee_id = ${id}
+      ORDER BY timestamp DESC
+      LIMIT 50
+    `
+  ).map((s) => {
+    const snap = mapSnapshot(s);
+    return {
+      id: snap.id,
+      timestamp: snap.timestamp,
+      billingPeriod: snap.billingPeriod,
+      billingCycle: snap.usageData.billingCycle ?? null,
+      plan: (snap.usageData.plan as string) || null,
+      usage: snap.usageData.usage ?? snap.usageData,
+      deviceId: snap.deviceId,
+    };
   });
-}
-
-function num(v: unknown): number | null {
-  return typeof v === 'number' && Number.isFinite(v) ? v : null;
-}
-
-function str(v: unknown): string | null {
-  return typeof v === 'string' && v ? v : null;
+  return {
+    employee,
+    devices: devices.map(({ tokenHash: _, ...d }) => d),
+    snapshots,
+  };
 }

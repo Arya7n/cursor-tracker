@@ -1,5 +1,22 @@
 # Company Cursor usage hub — run on an always-on VM
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cursor
+      POSTGRES_PASSWORD: cursor
+      POSTGRES_DB: cursor_usage
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cursor -d cursor_usage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   dashboard:
     build:
       context: .
@@ -8,11 +25,14 @@ services:
     ports:
       - "3000:3000"
     environment:
+      DATABASE_URL: postgres://cursor:cursor@db:5432/cursor_usage
+      DATABASE_SSL: "false"
       ENROLLMENT_SECRET: ${ENROLLMENT_SECRET}
       ADMIN_USER: ${ADMIN_USER}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-    volumes:
-      - usage-data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
-  usage-data:
+  pg-data:
