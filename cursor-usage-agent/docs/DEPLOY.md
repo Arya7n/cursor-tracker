@@ -62,35 +62,43 @@ Creates:
 
 `cursor-usage-agent/dist/CursorUsageAgent-employee.zip`
 
-Send employees:
+Employees should **not** need a zip. Use the install page on the dashboard:
 
-- that zip  
-- URL: `https://cursor-usage.yourcompany.com`  
-- enrollment secret (`ENROLLMENT_SECRET` from the VM `.env`)  
-- **not** the admin password  
+`http://SERVER:3000/install`
+
+They run the PowerShell command shown there. Files download over HTTP from the hub.
+
+Other options if email blocks zips:
+
+- Copy the **folder** `dist/CursorUsageAgent-employee` (not the .zip) to a file share or USB
+- Internal git clone of `cursor-usage-agent/agent` then `npm run enroll` / `npm run sync`
+  
 
 ---
 
 ## C. What each developer does
 
-1. Install Node.js LTS: https://nodejs.org  
-2. Stay signed in to Cursor Desktop  
-3. Unzip, then:
+Open `https://cursor-usage.yourcompany.com/install` and run the command for their OS.
+
+Need **Node.js 22 LTS** and to stay signed in to **Cursor Desktop**.
+
+### Windows
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1 -Server "https://cursor-usage.yourcompany.com" -Secret "ENROLLMENT_SECRET"
 ```
 
-That:
+Installs to `%LOCALAPPDATA%\CursorUsageAgent` and a scheduled task every **20 minutes**. Uninstall: `uninstall.ps1`.
 
-- installs to `%LOCALAPPDATA%\CursorUsageAgent`
-- enrolls the PC
-- uploads first usage snapshot
-- creates a scheduled task every **20 minutes**
+### Mac
+
+```bash
+bash install.sh "https://cursor-usage.yourcompany.com" "ENROLLMENT_SECRET"
+```
+
+Installs to `~/Library/Application Support/CursorUsageAgent` and a Launch Agent every **20 minutes**. Uninstall: `bash uninstall.sh`.
 
 Their row appears on the admin dashboard after the first successful sync.
-
-Uninstall: `uninstall.ps1` in the same zip (or in the install folder).
 
 ---
 

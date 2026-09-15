@@ -14,15 +14,16 @@ const WINDOWS_CANDIDATES = [
 ];
 
 /**
- * Detect Cursor IDE installation on the local machine (Windows first).
+ * Detect Cursor IDE installation on the local machine.
  * Read-only: does not modify Cursor files or configuration.
  */
 export async function detectCursorInstall(): Promise<CursorInstallInfo> {
-  const platform = process.platform;
-  if (platform === 'win32') {
+  if (process.platform === 'win32') {
     return detectWindows();
   }
-  // Stubs for later expansion
+  if (process.platform === 'darwin') {
+    return detectMac();
+  }
   return {
     installed: false,
     version: null,
@@ -79,20 +80,60 @@ async function detectWindows(): Promise<CursorInstallInfo> {
   };
 }
 
+async function detectMac(): Promise<CursorInstallInfo> {
+  const candidates = [
+    '/Applications/Cursor.app',
+    join(homedir(), 'Applications', 'Cursor.app'),
+  ];
+  const executablePath = candidates.find((p) => existsSync(p)) ?? null;
+  let version: string | null = null;
+  if (executablePath) {
+    const pkg = join(executablePath, 'Contents', 'Resources', 'app', 'package.json');
+    if (existsSync(pkg)) {
+      try {
+        const parsed = JSON.parse(readFileSync(pkg, 'utf8')) as { version?: string };
+        version = parsed.version ?? null;
+      } catch {
+        version = null;
+      }
+    }
+  }
+  const { processRunning, processCount } = await detectCursorProcess();
+  const cli = await detectAgentCli();
+  return {
+    installed: Boolean(executablePath),
+    version,
+    executablePath,
+    processRunning,
+    processCount,
+    cliAgentAvailable: cli.available,
+    cliAgentPath: cli.path,
+    cliAgentVersion: cli.version,
+  };
+}
+
 async function detectCursorProcess(): Promise<{
   processRunning: boolean;
   processCount: number;
 }> {
   try {
-    const { stdout } = await execFileAsync(
-      'tasklist',
-      ['/FI', 'IMAGENAME eq Cursor.exe', '/FO', 'CSV', '/NH'],
-      { windowsHide: true },
-    );
+    if (process.platform === 'win32') {
+      const { stdout } = await execFileAsync(
+        'tasklist',
+        ['/FI', 'IMAGENAME eq Cursor.exe', '/FO', 'CSV', '/NH'],
+        { windowsHide: true },
+      );
+      const lines = stdout
+        .split(/\r?\n/)
+        .map((l: string) => l.trim())
+        .filter((l: string) => /Cursor\.exe/i.test(l));
+      return { processRunning: lines.length > 0, processCount: lines.length };
+    }
+    const { stdout } = await execFileAsync('pgrep', ['-x', 'Cursor']);
     const lines = stdout
-      .split(/\r?\n/)
-      .map((l: string) => l.trim())
-      .filter((l: string) => /Cursor\.exe/i.test(l));
+      .split(/\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
     return { processRunning: lines.length > 0, processCount: lines.length };
   } catch {
     return { processRunning: false, processCount: 0 };
@@ -106,6 +147,8 @@ export async function detectAgentCli(): Promise<{
 }> {
   const candidates = [
     join(process.env.LOCALAPPDATA || '', 'cursor-agent', 'cursor-agent.ps1'),
+    join(homedir(), '.local', 'bin', 'agent'),
+    join(homedir(), '.local', 'bin', 'cursor-agent'),
     join(homedir(), '.local', 'bin', 'cursor-agent.ps1'),
     join(homedir(), '.local', 'bin', 'agent.cmd'),
   ];

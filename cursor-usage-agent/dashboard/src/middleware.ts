@@ -1,15 +1,19 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-const PUBLIC_API = [
+const PUBLIC_PATHS = [
   '/api/agents/register',
   '/api/agents/heartbeat',
   '/api/usage/report',
+  '/install',
+  '/bootstrap.ps1',
+  '/bootstrap.sh',
+  '/employee-kit',
 ];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (PUBLIC_API.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();
   }
 

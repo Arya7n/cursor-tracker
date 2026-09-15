@@ -1,3 +1,4 @@
+import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -14,10 +15,31 @@ export interface LocalCursorIdentity {
 }
 
 function stateDbPath(): string | null {
-  const base = process.env.APPDATA;
-  if (!base) return null;
-  const p = join(base, 'Cursor', 'User', 'globalStorage', 'state.vscdb');
-  return existsSync(p) ? p : null;
+  const candidates: string[] = [];
+  if (process.platform === 'win32' && process.env.APPDATA) {
+    candidates.push(
+      join(process.env.APPDATA, 'Cursor', 'User', 'globalStorage', 'state.vscdb'),
+    );
+  }
+  if (process.platform === 'darwin') {
+    candidates.push(
+      join(
+        homedir(),
+        'Library',
+        'Application Support',
+        'Cursor',
+        'User',
+        'globalStorage',
+        'state.vscdb',
+      ),
+    );
+  }
+  if (process.platform === 'linux') {
+    candidates.push(
+      join(homedir(), '.config', 'Cursor', 'User', 'globalStorage', 'state.vscdb'),
+    );
+  }
+  return candidates.find((p) => existsSync(p)) ?? null;
 }
 
 function openDb(): DatabaseSync | null {

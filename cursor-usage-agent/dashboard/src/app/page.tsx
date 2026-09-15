@@ -91,8 +91,11 @@ export default function AdminDashboard() {
             Cursor Usage
           </h1>
           <p className="mt-2 max-w-xl text-sm text-zinc-600">
-            Usage from every enrolled developer PC. Other machines run the agent
-            and sync to this dashboard.
+            Usage from every enrolled developer PC.{' '}
+            <a href="/install" className="text-teal-800 underline">
+              Employee install page
+            </a>{' '}
+            (no zip — they download from this dashboard).
           </p>
         </div>
         <div className="flex gap-2">

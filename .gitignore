@@ -22,8 +22,8 @@ coverage/
 # Company hub store
 cursor-usage-agent/dashboard/data/
 
-# Employee zip output
-cursor-usage-agent/dist/
+# Employee kit published into the dashboard (generated)
+cursor-usage-agent/dashboard/public/employee-kit/
 
 # Logs / OS
 *.log
