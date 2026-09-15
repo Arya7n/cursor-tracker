@@ -1,68 +1,34 @@
-# Cursor Usage — company hub + PC agent
+# Cursor Usage Agent
 
-One dashboard. Many developer PCs.
+Company rollout: **always-on dashboard VM** + **employee zip**.
+
+Full steps: **[docs/DEPLOY.md](docs/DEPLOY.md)**
 
 ```
-Developer PC  →  cursor-agent sync  →  Admin dashboard (this repo /dashboard)
+Developer PCs  --install.ps1-->  https://cursor-usage.yourcompany.com
+                                      ↓
+                                 Admin dashboard
 ```
 
-The agent never sends Cursor login tokens. Only usage aggregates + email.
-
----
-
-## 1. Admin PC (host the dashboard)
+### Admin (once)
 
 ```bash
-cd cursor-usage-agent/dashboard
-copy .env.example .env.local
-# set ENROLLMENT_SECRET to a real secret
-npm install
-npm run dev
+cd cursor-usage-agent
+cp .env.example .env   # set secrets
+docker compose up -d --build
 ```
 
-Open http://localhost:3000  
-Click **Sync this PC** to add the admin’s own Cursor usage.
+### Zip for employees (once)
 
-Other PCs need this machine’s LAN IP, e.g. `http://192.168.1.27:3000`.  
-Windows Firewall: allow Node/port 3000.
+```powershell
+cd packaging\windows
+powershell -ExecutionPolicy Bypass -File .\pack-employee-zip.ps1
+```
 
----
+Send `dist/CursorUsageAgent-employee.zip` + dashboard URL + enrollment secret.
 
-## 2. Each developer PC
-
-Install Node.js. Copy `cursor-usage-agent/agent` (or the whole repo). Stay signed in to Cursor Desktop.
+### Local dev (this PC only)
 
 ```bash
-cd cursor-usage-agent/agent
-npm install
-
-npm run enroll -- --server http://ADMIN_PC_IP:3000 --secret YOUR_SECRET
-npm run sync
+cd dashboard && npm install && npm run dev
 ```
-
-`sync` reads this PC’s Cursor usage and uploads it. Run it on a schedule (Task Scheduler every 15–30 minutes) or after work.
-
-Config is stored at `%USERPROFILE%\.cursor-usage-agent\config.json` (device token only, not Cursor’s token).
-
----
-
-## 3. Admin dashboard
-
-http://ADMIN_PC_IP:3000
-
-- Total / active developers
-- Average / highest / lowest usage %
-- Table: developer, plan, used, remaining, last sync
-
----
-
-## API (for the agent)
-
-| Method | Path | Auth |
-| --- | --- | --- |
-| POST | `/api/agents/register` | `x-enrollment-secret` |
-| POST | `/api/agents/heartbeat` | `Authorization: Bearer <deviceToken>` |
-| POST | `/api/usage/report` | `Authorization: Bearer <deviceToken>` |
-| GET | `/api/analytics/overview` | none (LAN POC) |
-| GET | `/api/developers` | none (LAN POC) |
-| GET | `/api/developers/:id` | none (LAN POC) |

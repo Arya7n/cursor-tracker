@@ -1,5 +1,5 @@
 # Cursor tracker
 
-Company Cursor usage: **agent on each developer PC** + **one admin dashboard**.
+Company Cursor usage hub.
 
-See [cursor-usage-agent/README.md](cursor-usage-agent/README.md).
+**Rollout (VM + employee installer):** [cursor-usage-agent/docs/DEPLOY.md](cursor-usage-agent/docs/DEPLOY.md)

@@ -1,0 +1,17 @@
+# Company Cursor usage hub — run on an always-on VM
+services:
+  dashboard:
+    build:
+      context: ./dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      ENROLLMENT_SECRET: ${ENROLLMENT_SECRET}
+      ADMIN_USER: ${ADMIN_USER}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    volumes:
+      - usage-data:/app/data
+
+volumes:
+  usage-data:

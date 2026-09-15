@@ -22,6 +22,9 @@ coverage/
 # Company hub store
 cursor-usage-agent/dashboard/data/
 
+# Employee zip output
+cursor-usage-agent/dist/
+
 # Logs / OS
 *.log
 npm-debug.log*
