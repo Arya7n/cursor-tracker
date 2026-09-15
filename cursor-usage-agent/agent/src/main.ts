@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import {
   AGENT_VERSION,
   formatHumanScan,
+  getMachineInfo,
   runFullScan,
 } from './collectors/scan.js';
 import { enrollWithHub, saveHubConfig, syncToHub } from './collectors/sync.js';
@@ -119,28 +120,88 @@ program
 program
   .command('enroll')
   .description('Save company dashboard URL + enrollment secret for this PC')
-  .requiredOption('--server <url>', 'Company dashboard URL, e.g. http://192.168.1.10:3000')
-  .requiredOption('--secret <secret>', 'Shared enrollment secret from the admin')
-  .action(async (opts: { server: string; secret: string }) => {
-    saveHubConfig({
-      serverUrl: opts.server.replace(/\/$/, ''),
-      enrollmentSecret: opts.secret,
-    });
-    const report = await runFullScan();
-    const cfg = await enrollWithHub(opts.server, opts.secret, report);
-    console.log(
-      JSON.stringify(
-        {
-          ok: true,
-          serverUrl: cfg.serverUrl,
-          employeeId: cfg.employeeId,
-          deviceId: cfg.deviceId,
-        },
-        null,
-        2,
-      ),
-    );
-  });
+  .argument('[server]', 'Company dashboard URL')
+  .argument('[secret]', 'Shared enrollment secret')
+  .option('--server <url>', 'Company dashboard URL')
+  .option('--secret <secret>', 'Shared enrollment secret')
+  .allowExcessArguments(true)
+  .action(
+    async (
+      serverArg: string | undefined,
+      secretArg: string | undefined,
+      opts: { server?: string; secret?: string },
+    ) => {
+      const server = (
+        opts.server ||
+        serverArg ||
+        process.env.CURSOR_USAGE_SERVER ||
+        ''
+      ).replace(/\/$/, '');
+      const secret =
+        opts.secret ||
+        secretArg ||
+        process.env.CURSOR_USAGE_ENROLLMENT_SECRET ||
+        '';
+      if (!server || !secret) {
+        throw new Error(
+          'Missing dashboard URL or enrollment secret. Re-run the installer from /install.',
+        );
+      }
+      saveHubConfig({
+        serverUrl: server,
+        enrollmentSecret: secret,
+      });
+      let report;
+      try {
+        report = await runFullScan();
+      } catch (e) {
+        console.error(
+          'Scan warning (still enrolling this PC):',
+          e instanceof Error ? e.message : e,
+        );
+        report = {
+          agentVersion: AGENT_VERSION,
+          timestamp: new Date().toISOString(),
+          machine: getMachineInfo(),
+          cursor: {
+            installed: false,
+            version: null,
+            executablePath: null,
+            processRunning: false,
+          },
+          account: {
+            authenticated: null,
+            identifier: null,
+            plan: null,
+            status: 'UNKNOWN' as const,
+          },
+          usage: { available: false },
+          models: { available: false, list: [], status: 'UNKNOWN' as const },
+          spending: { available: false, status: 'UNKNOWN' as const },
+          discoveries: [],
+        };
+      }
+      try {
+        const cfg = await enrollWithHub(server, secret, report as never);
+        console.log(
+          JSON.stringify(
+            {
+              ok: true,
+              serverUrl: cfg.serverUrl,
+              employeeId: cfg.employeeId,
+              deviceId: cfg.deviceId,
+            },
+            null,
+            2,
+          ),
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`Enroll request failed: ${msg}`);
+        process.exit(1);
+      }
+    },
+  );
 
 program
   .command('sync')

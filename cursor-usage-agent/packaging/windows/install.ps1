@@ -1,4 +1,4 @@
-param(
+﻿param(
   [Parameter(Mandatory = $true)]
   [string]$Server,
 
@@ -11,7 +11,13 @@ $ErrorActionPreference = "Stop"
 function Require-Node {
   $node = Get-Command node -ErrorAction SilentlyContinue
   if (-not $node) {
-    Write-Host "Node.js is required. Install the LTS build from https://nodejs.org then re-run this installer."
+    Write-Host "Node.js 22 LTS is required. Install it from https://nodejs.org then re-run this installer."
+    exit 1
+  }
+  $major = 0
+  try { $major = [int]((node -p "process.versions.node.split('.')[0]")) } catch { $major = 0 }
+  if ($major -lt 22) {
+    Write-Host "Need Node.js 22 or newer (found $(node -v)). Install LTS from https://nodejs.org"
     exit 1
   }
 }
@@ -33,14 +39,17 @@ Copy-Item -Path (Join-Path $source "*") -Destination $installDir -Recurse -Force
 
 Push-Location $installDir
 try {
-  npm install
+  $env:NODE_ENV = "development"
+  npm install --include=dev
   if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
 
   Write-Host "Enrolling this PC with $Server"
   $env:CURSOR_USAGE_SERVER = $Server.TrimEnd("/")
   $env:CURSOR_USAGE_ENROLLMENT_SECRET = $Secret
-  npm run enroll -- --server $env:CURSOR_USAGE_SERVER --secret $env:CURSOR_USAGE_ENROLLMENT_SECRET
-  if ($LASTEXITCODE -ne 0) { throw "enroll failed" }
+  npm run enroll
+  if ($LASTEXITCODE -ne 0) {
+    throw "enroll failed. Scroll up for the Node/hub error. Need Node 22 and a reachable hub URL."
+  }
 
   npm run sync
   if ($LASTEXITCODE -ne 0) {
@@ -51,14 +60,27 @@ try {
 }
 
 $taskName = "CursorUsageAgentSync"
-$syncCmd = "npm run sync"
-$action = "cmd.exe /c `"cd /d `"$installDir`" && $syncCmd`""
+$wrapper = Join-Path $installDir "sync-task.cmd"
+@(
+  "@echo off"
+  "cd /d `"$installDir`""
+  "call npm run sync"
+) | Set-Content -Path $wrapper -Encoding ASCII
 
-schtasks /Delete /TN $taskName /F 2>$null | Out-Null
-schtasks /Create /TN $taskName /TR $action /SC MINUTE /MO 20 /F | Out-Null
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "SilentlyContinue"
+cmd.exe /c "schtasks /Delete /TN $taskName /F" | Out-Null
+$ErrorActionPreference = $prevEap
 
-Write-Host ""
-Write-Host "Installed. This PC will sync usage about every 20 minutes."
+cmd.exe /c "schtasks /Create /TN $taskName /TR `"$wrapper`" /SC MINUTE /MO 20 /F"
+if ($LASTEXITCODE -ne 0) {
+  Write-Host ""
+  Write-Host "Enroll succeeded, but the 20-minute scheduled task was not created." -ForegroundColor Yellow
+  Write-Host "Manual sync:  cd `"$installDir`"; npm run sync"
+} else {
+  Write-Host ""
+  Write-Host "Installed. This PC will sync usage about every 20 minutes."
+}
+
 Write-Host "Dashboard: $Server"
-Write-Host "Manual sync:  cd `"$installDir`"; npm run sync"
 Write-Host "Uninstall:    .\uninstall.ps1"

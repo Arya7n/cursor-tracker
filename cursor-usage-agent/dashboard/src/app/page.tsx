@@ -7,35 +7,36 @@ type DeveloperRow = {
   email: string;
   name: string;
   plan: string | null;
-  usedUsd: number | null;
-  remainingUsd: number | null;
-  limitUsd: number | null;
   percent: number | null;
+  billingCycleStart: string | null;
+  billingCycleEnd: string | null;
   lastSeenAt: string | null;
-  deviceCount: number;
 };
 
 type Overview = {
   totals: {
     developers: number;
     activeDevelopers: number;
-    devices: number;
     averageUsagePercent: number | null;
     highestUsagePercent: number | null;
     lowestUsagePercent: number | null;
-    totalUsedUsd: number | null;
   };
   developers: DeveloperRow[];
 };
 
-function money(v: number | null) {
-  if (v == null) return '—';
-  return `$${v.toFixed(2)}`;
-}
-
 function pct(v: number | null) {
   if (v == null) return '—';
   return `${v.toFixed(1)}%`;
+}
+
+function cycleLabel(start: string | null, end: string | null) {
+  if (!start || !end) return '—';
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+  return `${fmt(start)} – ${fmt(end)}`;
 }
 
 export default function AdminDashboard() {
@@ -91,11 +92,10 @@ export default function AdminDashboard() {
             Cursor Usage
           </h1>
           <p className="mt-2 max-w-xl text-sm text-zinc-600">
-            Usage from every enrolled developer PC.{' '}
+            Usage % from each developer’s Cursor billing cycle.{' '}
             <a href="/install" className="text-teal-800 underline">
               Employee install page
-            </a>{' '}
-            (no zip — they download from this dashboard).
+            </a>
           </p>
         </div>
         <div className="flex gap-2">
@@ -157,8 +157,8 @@ export default function AdminDashboard() {
               <tr className="border-b border-zinc-100 text-xs uppercase tracking-wide text-zinc-500">
                 <th className="px-5 py-2">Developer</th>
                 <th className="px-3 py-2">Plan</th>
+                <th className="px-3 py-2">Cycle</th>
                 <th className="px-3 py-2">Usage</th>
-                <th className="px-3 py-2">Remaining</th>
                 <th className="px-5 py-2">Last sync</th>
               </tr>
             </thead>
@@ -175,13 +175,10 @@ export default function AdminDashboard() {
                     <div className="text-xs text-zinc-500">{d.email}</div>
                   </td>
                   <td className="px-3 py-3">{d.plan ?? '—'}</td>
-                  <td className="px-3 py-3">
-                    {money(d.usedUsd)}
-                    <span className="ml-2 text-xs text-zinc-500">
-                      {pct(d.percent)}
-                    </span>
+                  <td className="px-3 py-3 text-zinc-600">
+                    {cycleLabel(d.billingCycleStart, d.billingCycleEnd)}
                   </td>
-                  <td className="px-3 py-3">{money(d.remainingUsd)}</td>
+                  <td className="px-3 py-3 font-medium">{pct(d.percent)}</td>
                   <td className="px-5 py-3 text-xs text-zinc-500">
                     {d.lastSeenAt
                       ? new Date(d.lastSeenAt).toLocaleString()

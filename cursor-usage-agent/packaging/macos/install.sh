@@ -32,11 +32,12 @@ else
 fi
 
 cd "$INSTALL_DIR"
-npm install
+export NODE_ENV=development
+npm install --include=dev
 
 export CURSOR_USAGE_SERVER="$SERVER"
 export CURSOR_USAGE_ENROLLMENT_SECRET="$SECRET"
-npm run enroll -- --server "$SERVER" --secret "$SECRET"
+npm run enroll
 npm run sync || echo "First sync failed. Stay signed in to Cursor, then: cd \"$INSTALL_DIR\" && npm run sync"
 
 mkdir -p "$HOME/Library/LaunchAgents"

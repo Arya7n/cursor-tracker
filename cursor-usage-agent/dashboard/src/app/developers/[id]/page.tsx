@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { cursorUsagePercent } from '@/lib/percent';
 
 export default function DeveloperDetailPage() {
   const params = useParams<{ id: string }>();
@@ -24,7 +25,22 @@ export default function DeveloperDetailPage() {
     | { name?: string; email?: string }
     | undefined;
   const snapshots = (data?.snapshots as Array<Record<string, unknown>>) || [];
-  const latest = snapshots[0]?.usage as Record<string, unknown> | undefined;
+  const latest = snapshots[0];
+  const usage = latest?.usage as Record<string, unknown> | undefined;
+  const cycle = latest?.billingCycle as
+    | { start?: string; end?: string }
+    | undefined;
+  const plan =
+    (typeof latest?.plan === 'string' && latest.plan) ||
+    (typeof usage?.planName === 'string' && usage.planName) ||
+    null;
+  const devices = (data?.devices as Array<{ lastSeenAt?: string }>) || [];
+  const lastSeen = devices
+    .map((d) => d.lastSeenAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const percent = cursorUsagePercent(usage);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -37,20 +53,26 @@ export default function DeveloperDetailPage() {
       </h1>
       <p className="text-sm text-zinc-500">{employee?.email}</p>
 
-      {!latest ? (
+      {!usage ? (
         <p className="mt-6 text-sm text-zinc-500">Waiting for agent data</p>
       ) : (
         <dl className="mt-6 space-y-2 rounded-xl border border-zinc-200 bg-white p-5 text-sm">
-          <Row label="Used" value={fmt(latest.usedUsd)} />
-          <Row label="Remaining" value={fmt(latest.remainingUsd)} />
-          <Row label="Limit" value={fmt(latest.limitUsd)} />
+          <Row label="Plan" value={plan ?? '—'} />
           <Row
-            label="Usage %"
+            label="Cycle"
             value={
-              typeof latest.totalPercentUsed === 'number'
-                ? `${latest.totalPercentUsed.toFixed(1)}%`
+              cycle?.start && cycle?.end
+                ? `${new Date(cycle.start).toLocaleDateString()} – ${new Date(cycle.end).toLocaleDateString()}`
                 : '—'
             }
+          />
+          <Row
+            label="Usage"
+            value={percent != null ? `${percent.toFixed(1)}%` : '—'}
+          />
+          <Row
+            label="Last sync"
+            value={lastSeen ? new Date(lastSeen).toLocaleString() : '—'}
           />
         </dl>
       )}
@@ -58,15 +80,11 @@ export default function DeveloperDetailPage() {
   );
 }
 
-function fmt(v: unknown) {
-  return typeof v === 'number' ? `$${v.toFixed(2)}` : '—';
-}
-
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between border-b border-zinc-100 py-2 last:border-0">
+    <div className="flex justify-between gap-4 border-b border-zinc-100 py-2 last:border-0">
       <dt className="text-zinc-500">{label}</dt>
-      <dd className="font-medium">{value}</dd>
+      <dd className="font-medium text-right">{value}</dd>
     </div>
   );
 }

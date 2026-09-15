@@ -96,11 +96,20 @@ async function postJson(
     headers: {
       'Content-Type': 'application/json',
       'ngrok-skip-browser-warning': '1',
+      'User-Agent': 'CursorUsageAgent/0.1',
       ...headers,
     },
     body: JSON.stringify(body),
   });
-  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try {
+    json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    throw new Error(
+      `Hub returned non-JSON (HTTP ${res.status}). Check the dashboard URL / ngrok. Preview: ${text.slice(0, 180)}`,
+    );
+  }
   if (!res.ok) {
     throw new Error(String(json.error || `HTTP ${res.status}`));
   }

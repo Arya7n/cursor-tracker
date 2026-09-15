@@ -4,12 +4,34 @@ import { useMemo, useState } from 'react';
 
 const SECRET = 'aryan_dev';
 
+function toEncodedCommand(script: string): string {
+  const bytes = new Uint8Array(script.length * 2);
+  for (let i = 0; i < script.length; i++) {
+    const code = script.charCodeAt(i);
+    bytes[i * 2] = code & 0xff;
+    bytes[i * 2 + 1] = code >> 8;
+  }
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 export default function EmployeeInstallPage() {
   const origin =
     typeof window !== 'undefined' ? window.location.origin : 'http://SERVER:3000';
 
   const winCmd = useMemo(() => {
-    return `powershell -ExecutionPolicy Bypass -Command "$h=@{ 'ngrok-skip-browser-warning'='1' }; irm ${origin}/bootstrap.ps1 -Headers $h -OutFile $env:TEMP\\cursor-usage-bootstrap.ps1; powershell -ExecutionPolicy Bypass -File $env:TEMP\\cursor-usage-bootstrap.ps1 -Server '${origin}' -Secret '${SECRET}'"`;
+    const script = [
+      "$ProgressPreference = 'SilentlyContinue'",
+      `$server = '${origin}'`,
+      `$secret = '${SECRET}'`,
+      "$path = Join-Path $env:TEMP 'cursor-usage-bootstrap.ps1'",
+      "Invoke-WebRequest -Uri \"$server/bootstrap.ps1\" -Headers @{ 'ngrok-skip-browser-warning' = '1' } -OutFile $path",
+      '& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $path -Server $server -Secret $secret',
+    ].join('; ');
+    return `powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${toEncodedCommand(script)}`;
   }, [origin]);
 
   const macCmd = useMemo(() => {
@@ -24,7 +46,8 @@ export default function EmployeeInstallPage() {
       <h1 className="mt-2 text-2xl font-semibold">Install Cursor Usage Agent</h1>
       <p className="mt-3 text-sm text-zinc-600">
         Works on Windows and Mac. Install Node.js 22 LTS, stay signed in to
-        Cursor Desktop, then run the command for your OS. No zip required.
+        Cursor Desktop, then run the command for your OS. No zip required. The
+        Windows command works in Command Prompt and PowerShell.
       </p>
 
       <CommandBlock title="Windows" command={winCmd} />

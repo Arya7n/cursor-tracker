@@ -1,4 +1,4 @@
-param(
+﻿param(
   [Parameter(Mandatory = $true)]
   [string]$Server,
 
@@ -11,7 +11,13 @@ $Server = $Server.TrimEnd("/")
 
 $node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) {
-  Write-Host "Install Node.js LTS from https://nodejs.org then run this again."
+  Write-Host "Install Node.js 22 LTS from https://nodejs.org then run this again."
+  exit 1
+}
+$major = 0
+try { $major = [int]((node -p "process.versions.node.split('.')[0]")) } catch { $major = 0 }
+if ($major -lt 22) {
+  Write-Host "Need Node.js 22 or newer (found $(node -v)). Install LTS from https://nodejs.org"
   exit 1
 }
 

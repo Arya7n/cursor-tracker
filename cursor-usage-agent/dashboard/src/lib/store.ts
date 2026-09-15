@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { cursorUsagePercent } from './percent';
 
 export interface Employee {
   id: string;
@@ -247,6 +248,10 @@ export async function overview() {
       const devices = store.devices.filter((d) => d.employeeId === emp.id);
       const latest = latestByEmployee.get(emp.id);
       const usage = (latest?.usageData?.usage ?? {}) as Record<string, unknown>;
+      const billing = (latest?.usageData?.billingCycle ?? {}) as Record<
+        string,
+        unknown
+      >;
       const lastSeen = devices
         .map((d) => d.lastSeenAt)
         .sort()
@@ -256,10 +261,9 @@ export async function overview() {
         email: emp.email,
         name: emp.name,
         plan: (latest?.usageData?.plan as string) || null,
-        usedUsd: num(usage.usedUsd),
-        remainingUsd: num(usage.remainingUsd),
-        limitUsd: num(usage.limitUsd),
-        percent: num(usage.totalPercentUsed),
+        percent: cursorUsagePercent(usage),
+        billingCycleStart: str(billing.start),
+        billingCycleEnd: str(billing.end),
         lastSeenAt: lastSeen ?? null,
         deviceCount: devices.length,
         cursorVersion: devices[0]?.cursorVersion ?? null,
@@ -268,9 +272,6 @@ export async function overview() {
 
     const percents = rows
       .map((r) => r.percent)
-      .filter((n): n is number => n != null);
-    const used = rows
-      .map((r) => r.usedUsd)
       .filter((n): n is number => n != null);
     const activeCutoff = Date.now() - 24 * 60 * 60 * 1000;
     const active = rows.filter(
@@ -288,7 +289,6 @@ export async function overview() {
             : null,
         highestUsagePercent: percents.length ? Math.max(...percents) : null,
         lowestUsagePercent: percents.length ? Math.min(...percents) : null,
-        totalUsedUsd: used.length ? used.reduce((a, b) => a + b, 0) : null,
       },
       developers: rows.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1)),
     };
@@ -309,6 +309,8 @@ export async function employeeDetail(id: string) {
         id: s.id,
         timestamp: s.timestamp,
         billingPeriod: s.billingPeriod,
+        billingCycle: s.usageData.billingCycle ?? null,
+        plan: (s.usageData.plan as string) || null,
         usage: s.usageData.usage ?? s.usageData,
         deviceId: s.deviceId,
       }));
@@ -318,4 +320,8 @@ export async function employeeDetail(id: string) {
 
 function num(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+function str(v: unknown): string | null {
+  return typeof v === 'string' && v ? v : null;
 }

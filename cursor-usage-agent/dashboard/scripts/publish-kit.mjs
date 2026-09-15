@@ -63,7 +63,15 @@ function writeLf(file) {
   const text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   writeFileSync(file, text, 'utf8');
 }
-for (const f of walk(dest)) writeLf(f);
+function writePs1Bom(file) {
+  if (!file.endsWith('.ps1')) return;
+  const text = readFileSync(file, 'utf8').replace(/\u2014/g, '-').replace(/\u2013/g, '-');
+  writeFileSync(file, `\uFEFF${text.replace(/^\uFEFF/, '')}`, 'utf8');
+}
+for (const f of walk(dest)) {
+  writeLf(f);
+  writePs1Bom(f);
+}
 
 const publicBootstrap = join(process.cwd(), 'public', 'bootstrap.sh');
 if (existsSync(join(packMac, 'bootstrap.sh'))) {

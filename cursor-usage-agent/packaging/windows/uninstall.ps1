@@ -1,6 +1,6 @@
+﻿$ErrorActionPreference = "SilentlyContinue"
+cmd.exe /c "schtasks /Delete /TN CursorUsageAgentSync /F" | Out-Null
 $ErrorActionPreference = "Stop"
-$taskName = "CursorUsageAgentSync"
-schtasks /Delete /TN $taskName /F 2>$null | Out-Null
 $installDir = Join-Path $env:LOCALAPPDATA "CursorUsageAgent"
 if (Test-Path $installDir) {
   Remove-Item -LiteralPath $installDir -Recurse -Force
