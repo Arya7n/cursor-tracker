@@ -392,6 +392,12 @@ export async function overview() {
       name: emp.name,
       plan: (latest?.usageData?.plan as string) || null,
       percent: cursorUsagePercent(usage),
+      autoPercent:
+        typeof usage.autoPercentUsed === 'number' ? usage.autoPercentUsed : null,
+      apiPercent:
+        typeof usage.apiPercentUsed === 'number' ? usage.apiPercentUsed : null,
+      displayMessage:
+        typeof usage.displayMessage === 'string' ? usage.displayMessage : null,
       billingCycleStart: str(billing.start),
       billingCycleEnd: str(billing.end),
       lastSeenAt: lastSeen ?? null,
@@ -420,7 +426,7 @@ export async function overview() {
       highestUsagePercent: percents.length ? Math.max(...percents) : null,
       lowestUsagePercent: percents.length ? Math.min(...percents) : null,
     },
-    developers: rows.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1)),
+    developers: rows.sort((a, b) => a.name.localeCompare(b.name)),
   };
 }
 

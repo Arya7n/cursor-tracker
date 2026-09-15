@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
+@theme inline {
+  --font-sans: var(--font-dm-sans), "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 :root {
-  --bg: #f4f7f5;
-  --ink: #14201b;
+  --bg: #eef3f0;
+  --ink: #12201b;
   --accent: #0f766e;
   --card: #ffffff;
   --muted: #5b6b64;
@@ -11,10 +16,24 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-width: 0;
+  overflow-x: hidden;
   color: var(--ink);
   background:
-    radial-gradient(900px 420px at 0% 0%, #ccfbf1 0%, transparent 55%),
-    radial-gradient(700px 380px at 100% 0%, #e7e5e4 0%, transparent 50%),
+    radial-gradient(920px 460px at -10% -10%, #99f6e4 0%, transparent 42%),
+    radial-gradient(720px 380px at 110% -5%, #e7e5e4 0%, transparent 46%),
+    radial-gradient(640px 280px at 50% 120%, #ccfbf1 0%, transparent 50%),
     var(--bg);
-  font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: #99f6e4;
+}
+
+button,
+a,
+input {
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease,
+    box-shadow 150ms ease, opacity 150ms ease;
 }
