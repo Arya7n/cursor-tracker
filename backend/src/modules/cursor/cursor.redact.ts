@@ -1,5 +1,5 @@
 const SECRET_KEY_PATTERN =
-  /(authorization|api[_-]?key|cookie|set-cookie|password|secret|token|session)/i;
+  /^(authorization|api[_-]?key|cookie|set-cookie|password|secret|token|session|x-api-key)$/i;
 
 const SECRET_VALUE_PATTERN =
   /\b(crsr_[A-Za-z0-9]+|cursor_[A-Za-z0-9_-]+|Bearer\s+\S+|Basic\s+[A-Za-z0-9+/=]+)/gi;

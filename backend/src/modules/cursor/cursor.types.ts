@@ -35,6 +35,8 @@ export interface ProbeResult {
   accessible: boolean;
   responseTime: number;
   responseShape: unknown;
+  /** Full redacted body for the debug inspector */
+  rawResponse?: unknown;
   message: string;
   availability: DiscoveryAvailability;
   purpose: string;

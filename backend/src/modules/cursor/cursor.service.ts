@@ -38,6 +38,24 @@ export class CursorService {
     capabilities: CapabilitiesSummary;
     conclusion: PersonalKeyConclusion;
   }> {
+    const results = await this.probeAllDocumentedEndpoints();
+    const account = await this.getAccountFromCacheOrFetch();
+    const usage = this.buildUsageFromProbes(results);
+    const spending = this.buildSpendingFromProbes(results);
+    const history = await this.buildHistoryFromProbes(results);
+    const capabilities = this.buildCapabilities(account, usage, spending, history);
+    const conclusion = this.buildConclusion(capabilities);
+
+    return {
+      configured: this.client.isConfigured(),
+      baseUrl: this.client.getBaseUrl(),
+      results,
+      capabilities,
+      conclusion,
+    };
+  }
+
+  private async probeAllDocumentedEndpoints(): Promise<ProbeResult[]> {
     const catalog = buildDocumentedEndpointCatalog();
     const results: ProbeResult[] = [];
 
@@ -49,17 +67,14 @@ export class CursorService {
       results.push(await this.probe(spec));
     }
 
-    // Dynamically probe per-agent usage if we can list an agent
-    const agentsProbe = results.find(
+    const agentsAccessible = results.some(
       (r) => r.endpoint === '/v1/agents' && r.accessible,
     );
-    if (agentsProbe) {
-      const agentId = this.extractFirstAgentId(agentsProbe.responseShape);
-      // Prefer raw body from a fresh call for ID extraction
+    if (agentsAccessible) {
       const list = await this.client.request('GET', '/v1/agents', {
         query: { limit: 1 },
       });
-      const id = this.extractFirstAgentId(list.body) ?? agentId;
+      const id = this.extractFirstAgentId(list.body);
       if (id) {
         const usageSpec: DocumentedEndpointSpec = {
           endpoint: `/v1/agents/${id}/usage`,
@@ -73,20 +88,11 @@ export class CursorService {
       }
     }
 
-    const account = await this.getAccount();
-    const usage = await this.getUsage(results);
-    const spending = await this.getSpending(results);
-    const history = await this.getUsageHistory(results);
-    const capabilities = this.buildCapabilities(account, usage, spending, history);
-    const conclusion = this.buildConclusion(capabilities);
+    return results;
+  }
 
-    return {
-      configured: this.client.isConfigured(),
-      baseUrl: this.client.getBaseUrl(),
-      results,
-      capabilities,
-      conclusion,
-    };
+  private async getAccountFromCacheOrFetch(): Promise<AccountInfoResponse> {
+    return this.getAccount();
   }
 
   async getAccount(): Promise<AccountInfoResponse> {
@@ -117,13 +123,47 @@ export class CursorService {
     return this.normalizeAccount(response.body as Record<string, unknown>, '/v1/me');
   }
 
-  async getUsage(discoveryResults?: ProbeResult[]): Promise<UsageInfoResponse> {
-    const hints = discoveryResults ?? (await this.discover()).results;
+  async getUsage(): Promise<UsageInfoResponse> {
+    const hints = await this.probeAllDocumentedEndpoints();
+    return this.buildUsageFromProbes(hints);
+  }
+
+  async getSpending(): Promise<SpendingInfoResponse> {
+    const hints = await this.probeAllDocumentedEndpoints();
+    return this.buildSpendingFromProbes(hints);
+  }
+
+  async getUsageHistory(): Promise<UsageHistoryResponse> {
+    const hints = await this.probeAllDocumentedEndpoints();
+    return this.buildHistoryFromProbes(hints);
+  }
+
+  async getDashboard(): Promise<DashboardPayload> {
+    const discovery = await this.discover();
+    return {
+      account: await this.getAccount(),
+      usage: this.buildUsageFromProbes(discovery.results),
+      spending: this.buildSpendingFromProbes(discovery.results),
+      usageHistory: await this.buildHistoryFromProbes(discovery.results),
+      capabilities: discovery.capabilities,
+      conclusion: discovery.conclusion,
+      discoverySummary: {
+        tested: discovery.results.filter((r) => !r.skipped).length,
+        accessible: discovery.results.filter((r) => r.accessible).length,
+        inaccessible: discovery.results.filter(
+          (r) => !r.accessible && !r.skipped,
+        ).length,
+        skipped: discovery.results.filter((r) => r.skipped).length,
+      },
+    };
+  }
+
+  private buildUsageFromProbes(hints: ProbeResult[]): UsageInfoResponse {
     const adminUsage = hints.find(
       (r) => r.endpoint === '/teams/daily-usage-data',
     );
-    const agentUsage = hints.find((r) =>
-      r.endpoint.includes('/usage') && r.endpoint.includes('/agents/'),
+    const agentUsage = hints.find(
+      (r) => r.endpoint.includes('/usage') && r.endpoint.includes('/agents/'),
     );
 
     const accountWideAvailable = Boolean(adminUsage?.accessible);
@@ -157,24 +197,34 @@ export class CursorService {
       };
     }
 
-    // If admin usage somehow worked (e.g. enterprise key used for this POC)
     if (accountWideAvailable && adminUsage) {
-      const body = await this.client.request('POST', '/teams/daily-usage-data', {
-        body: {
-          startDate: Date.now() - 30 * 24 * 60 * 60 * 1000,
-          endDate: Date.now(),
-        },
-      });
       return {
         available: true,
-        note: 'Data returned by Enterprise Admin API /teams/daily-usage-data',
-        currentUsage: { available: true, value: body.body, source: '/teams/daily-usage-data' },
-        monthlyUsage: { available: true, value: body.body, source: '/teams/daily-usage-data' },
-        dailyUsage: { available: true, value: body.body, source: '/teams/daily-usage-data' },
+        note:
+          'Admin /teams/daily-usage-data was accessible (typically Enterprise admin key). Payload shape recorded in discovery.',
+        currentUsage: {
+          available: true,
+          value: adminUsage.responseShape,
+          source: '/teams/daily-usage-data',
+        },
+        monthlyUsage: {
+          available: true,
+          value: adminUsage.responseShape,
+          source: '/teams/daily-usage-data',
+        },
+        dailyUsage: {
+          available: true,
+          value: adminUsage.responseShape,
+          source: '/teams/daily-usage-data',
+        },
         usageLimits: unavailable('Not exposed by this endpoint'),
         remainingUsage: unavailable('Not exposed by this endpoint'),
         premiumUsage: unavailable('Not exposed by this endpoint'),
-        requestCounts: { available: true, value: body.body, source: '/teams/daily-usage-data' },
+        requestCounts: {
+          available: true,
+          value: adminUsage.responseShape,
+          source: '/teams/daily-usage-data',
+        },
         tokenCounts: unavailable('Prefer /teams/filtered-usage-events for costs'),
         modelUsage: unavailable('See Analytics API for model breakdown'),
         agentUsage: unavailable('Not exposed by this endpoint'),
@@ -185,10 +235,8 @@ export class CursorService {
       };
     }
 
-    // Only cloud-agent scoped tokens
     return {
       available: true,
-      reason: undefined,
       note:
         'Only per-cloud-agent token usage is available (not IDE Tab/Chat/Composer subscription usage).',
       currentUsage: unavailable('Account-wide current usage not exposed'),
@@ -227,8 +275,7 @@ export class CursorService {
     };
   }
 
-  async getSpending(discoveryResults?: ProbeResult[]): Promise<SpendingInfoResponse> {
-    const hints = discoveryResults ?? (await this.discover()).results;
+  private buildSpendingFromProbes(hints: ProbeResult[]): SpendingInfoResponse {
     const spend = hints.find((r) => r.endpoint === '/teams/spend');
 
     if (!spend?.accessible) {
@@ -248,36 +295,43 @@ export class CursorService {
       };
     }
 
-    const body = await this.client.request('POST', '/teams/spend', {
-      body: { page: 1, pageSize: 10 },
-    });
-
     return {
       available: true,
       note: 'Returned by Enterprise Admin API /teams/spend',
-      currentSpending: { available: true, value: body.body, source: '/teams/spend' },
-      monthlySpending: { available: true, value: body.body, source: '/teams/spend' },
-      usageBasedSpending: { available: true, value: body.body, source: '/teams/spend' },
+      currentSpending: {
+        available: true,
+        value: spend.responseShape,
+        source: '/teams/spend',
+      },
+      monthlySpending: {
+        available: true,
+        value: spend.responseShape,
+        source: '/teams/spend',
+      },
+      usageBasedSpending: {
+        available: true,
+        value: spend.responseShape,
+        source: '/teams/spend',
+      },
       subscriptionCost: unavailable('Not exposed by this endpoint'),
       perModelCost: unavailable('Not exposed by this endpoint'),
       remainingBudget: {
         available: true,
-        value: body.body,
+        value: spend.responseShape,
         source: '/teams/spend',
       },
       billingCycle: {
         available: true,
-        value: body.body,
+        value: spend.responseShape,
         source: '/teams/spend',
       },
       discoveryHints: [spend],
     };
   }
 
-  async getUsageHistory(
-    discoveryResults?: ProbeResult[],
+  private async buildHistoryFromProbes(
+    hints: ProbeResult[],
   ): Promise<UsageHistoryResponse> {
-    const hints = discoveryResults ?? (await this.discover()).results;
     const daily = hints.find((r) => r.endpoint === '/teams/daily-usage-data');
     const events = hints.find(
       (r) => r.endpoint === '/teams/filtered-usage-events',
@@ -316,52 +370,22 @@ export class CursorService {
     };
   }
 
-  async getDashboard(): Promise<DashboardPayload> {
-    const discovery = await this.discover();
-    const account = await this.getAccount();
-    const usage = await this.getUsage(discovery.results);
-    const spending = await this.getSpending(discovery.results);
-    const usageHistory = await this.getUsageHistory(discovery.results);
-    const capabilities = this.buildCapabilities(
-      account,
-      usage,
-      spending,
-      usageHistory,
-    );
-
-    return {
-      account,
-      usage,
-      spending,
-      usageHistory,
-      capabilities,
-      conclusion: discovery.conclusion,
-      discoverySummary: {
-        tested: discovery.results.filter((r) => !r.skipped).length,
-        accessible: discovery.results.filter((r) => r.accessible).length,
-        inaccessible: discovery.results.filter(
-          (r) => !r.accessible && !r.skipped,
-        ).length,
-        skipped: discovery.results.filter((r) => r.skipped).length,
-      },
-    };
-  }
-
   async getDebugInspections(): Promise<DebugInspection[]> {
-    const discovery = await this.discover();
-    return discovery.results
+    const results = await this.probeAllDocumentedEndpoints();
+    return results
       .filter((r) => !r.skipped)
       .map((r) => ({
         endpoint: r.endpoint,
         method: r.method,
         status: r.status,
         responseHeaders: r.responseHeaders ?? {},
-        rawResponse: r.errorBody ?? r.responseShape,
+        rawResponse: r.rawResponse ?? r.errorBody ?? r.responseShape,
         normalizedResponse: {
           accessible: r.accessible,
           message: r.message,
           availability: r.availability,
           purpose: r.purpose,
+          responseShape: r.responseShape,
         },
         message: r.message,
         responseTime: r.responseTime,
@@ -450,6 +474,7 @@ export class CursorService {
       accessible,
       responseTime: response.responseTimeMs,
       responseShape: accessible ? responseShape(redacted) : redacted,
+      rawResponse: redacted,
       message: statusMessage(status),
       availability: spec.availability,
       purpose: spec.purpose,
