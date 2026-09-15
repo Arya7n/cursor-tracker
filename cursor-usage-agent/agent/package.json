@@ -1,0 +1,27 @@
+{
+  "name": "cursor-usage-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "cursor-agent": "./bin/cursor-agent.js"
+  },
+  "scripts": {
+    "scan": "node --experimental-sqlite --import tsx src/main.ts scan",
+    "report": "node --experimental-sqlite --import tsx src/main.ts report",
+    "test-usage": "node --experimental-sqlite --import tsx src/main.ts test-usage",
+    "snapshot": "node --experimental-sqlite --import tsx src/main.ts snapshot",
+    "enroll": "node --experimental-sqlite --import tsx src/main.ts enroll",
+    "sync": "node --experimental-sqlite --import tsx src/main.ts sync",
+    "build": "tsc -p tsconfig.json",
+    "cursor-agent": "node --experimental-sqlite --import tsx src/main.ts"
+  },
+  "dependencies": {
+    "commander": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}

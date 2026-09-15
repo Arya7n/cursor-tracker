@@ -16,6 +16,12 @@ build/
 out/
 coverage/
 
+# Agent local snapshots
+.cursor-agent/
+
+# Company hub store
+cursor-usage-agent/dashboard/data/
+
 # Logs / OS
 *.log
 npm-debug.log*
@@ -26,11 +32,4 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
-
-# Drizzle / local DB
-*.db
-drizzle/meta/
-
-# Misc
-.turbo
 *.tsbuildinfo
