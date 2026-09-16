@@ -1,18 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkline, UsageBar, UsageRing } from '@/components/UsageMeter';
+import { UsageBar, UsageRing } from '@/components/UsageMeter';
 import { cursorUsagePercent } from '@/lib/percent';
 import {
   asNumber,
   asRecord,
   asString,
   cycleLabel,
-  cycleProgress,
   daysLeft,
-  formatPct,
   initials,
   relativeTime,
 } from '@/lib/format';
@@ -28,12 +26,10 @@ type Device = {
 };
 
 type Snapshot = {
-  id: string;
   timestamp: string;
   plan: string | null;
   billingCycle: { start?: string; end?: string } | null;
   usage: Record<string, unknown> | null;
-  deviceId: string;
 };
 
 export default function DeveloperDetailPage() {
@@ -61,35 +57,20 @@ export default function DeveloperDetailPage() {
   const latest = snapshots[0];
   const usage = asRecord(latest?.usage);
   const cycle = latest?.billingCycle;
-  const plan =
-    asString(latest?.plan) ||
-    asString(usage.planName) ||
-    null;
+  const plan = asString(latest?.plan) || asString(usage.planName) || null;
   const lastSeen = devices
     .map((d) => d.lastSeenAt)
     .filter(Boolean)
     .sort()
     .at(-1);
   const percent = cursorUsagePercent(usage);
+  const left = daysLeft(cycle?.end);
   const autoPercent = asNumber(usage.autoPercentUsed);
   const apiPercent = asNumber(usage.apiPercentUsed);
-  const progress = cycleProgress(cycle?.start, cycle?.end);
-  const left = daysLeft(cycle?.end);
-  const history = useMemo(
-    () =>
-      [...snapshots]
-        .reverse()
-        .map((s) => cursorUsagePercent(asRecord(s.usage)))
-        .filter((n): n is number => n != null),
-    [snapshots],
-  );
 
   return (
     <main className="mx-auto w-full max-w-4xl px-3 py-6 sm:px-6 sm:py-8">
-      <Link
-        href="/"
-        className="text-sm font-medium text-teal-800 hover:underline"
-      >
+      <Link href="/" className="text-sm font-medium text-teal-800 hover:underline">
         ← Team
       </Link>
 
@@ -120,111 +101,70 @@ export default function DeveloperDetailPage() {
               Waiting for this machine to sync.
             </p>
           ) : (
-            <div className="mt-8 grid gap-4">
-              <section className="rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-sm sm:p-6">
-                <UsageRing
-                  percent={percent}
-                  caption="Matches the included usage % in Cursor"
+            <section className="mt-8 rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-sm sm:p-6">
+              <UsageRing
+                percent={percent}
+                caption="Matches the included usage % in Cursor"
+              />
+              <dl className="mt-5 grid gap-3 sm:grid-cols-3">
+                <Fact label="Plan" value={plan ?? '—'} />
+                <Fact
+                  label="Cycle"
+                  value={cycleLabel(cycle?.start, cycle?.end)}
+                  hint={
+                    left == null
+                      ? undefined
+                      : left === 0
+                        ? 'Resets today'
+                        : `${left} days left`
+                  }
                 />
-                <dl className="mt-5 grid gap-3 sm:grid-cols-3">
-                  <Fact label="Plan" value={plan ?? '—'} />
-                  <Fact
-                    label="Cycle"
-                    value={cycleLabel(cycle?.start, cycle?.end)}
-                    hint={
-                      left == null
-                        ? undefined
-                        : left === 0
-                          ? 'Resets today'
-                          : `${left} days left`
-                    }
-                  />
-                  <Fact
-                    label="Last sync"
-                    value={relativeTime(lastSeen)}
-                  />
-                </dl>
-                {progress != null ? (
-                  <div className="mt-5">
-                    <div className="mb-1.5 flex justify-between text-xs text-zinc-500">
-                      <span>Billing cycle</span>
-                      <span>{formatPct(progress)} elapsed</span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
-                      <div
-                        className="h-full rounded-full bg-zinc-400"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-
-              {(autoPercent != null || apiPercent != null) && (
-                <section className="grid gap-3 sm:grid-cols-2">
-                  <MeterCard label="Auto / included" percent={autoPercent} />
-                  <MeterCard label="API usage" percent={apiPercent} />
-                </section>
-              )}
-
-              <section className="rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm">
-                <h2 className="text-sm font-semibold text-zinc-900">
-                  Recent trend
-                </h2>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Included usage from the last {snapshots.length} sync
-                  {snapshots.length === 1 ? '' : 's'}
-                </p>
-                <div className="mt-3">
-                  <Sparkline points={history} />
-                </div>
-                {snapshots.length ? (
-                  <ol className="mt-4 max-h-56 space-y-2 overflow-auto text-sm">
-                    {snapshots.slice(0, 12).map((s) => (
-                      <li
-                        key={s.id}
-                        className="flex flex-col gap-1 rounded-lg bg-zinc-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                      >
-                        <span className="break-words text-zinc-500">
-                          {new Date(s.timestamp).toLocaleString()}
-                        </span>
-                        <span className="font-mono text-xs font-semibold tabular-nums text-zinc-800">
-                          {formatPct(cursorUsagePercent(asRecord(s.usage)))}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                ) : null}
-              </section>
-
-              <section className="rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm">
-                <h2 className="text-sm font-semibold text-zinc-900">Devices</h2>
-                <ul className="mt-3 space-y-2">
-                  {devices.map((d) => (
-                    <li
-                      key={d.id}
-                      className="flex min-w-0 flex-col gap-1 rounded-xl border border-zinc-100 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="break-words font-medium text-zinc-900">{d.deviceName}</p>
-                        <p className="break-words text-xs text-zinc-500">
-                          {d.operatingSystem} · {d.architecture}
-                          {d.cursorVersion ? ` · Cursor ${d.cursorVersion}` : ''}
-                          {` · agent ${d.agentVersion}`}
-                        </p>
-                      </div>
-                      <p className="text-xs text-zinc-500">
-                        {relativeTime(d.lastSeenAt)}
-                      </p>
-                    </li>
-                  ))}
-                  {!devices.length ? (
-                    <li className="text-sm text-zinc-500">No devices enrolled.</li>
-                  ) : null}
-                </ul>
-              </section>
-            </div>
+                <Fact label="Last sync" value={relativeTime(lastSeen)} />
+              </dl>
+            </section>
           )}
+
+          {(autoPercent != null || apiPercent != null) && (
+            <section className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-sm">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Auto / included
+                </p>
+                <UsageBar percent={autoPercent} />
+              </div>
+              <div className="rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-sm">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  API usage
+                </p>
+                <UsageBar percent={apiPercent} />
+              </div>
+            </section>
+          )}
+
+          <section className="mt-4 rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-zinc-900">Devices</h2>
+            <ul className="mt-3 space-y-2">
+              {devices.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex min-w-0 flex-col gap-1 rounded-xl border border-zinc-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="break-words font-medium text-zinc-900">{d.deviceName}</p>
+                    <p className="break-words text-xs text-zinc-500">
+                      {d.operatingSystem} · {d.architecture}
+                      {d.cursorVersion ? ` · Cursor ${d.cursorVersion}` : ''}
+                      {` · agent ${d.agentVersion}`}
+                    </p>
+                  </div>
+                  <p className="text-xs text-zinc-500">{relativeTime(d.lastSeenAt)}</p>
+                </li>
+              ))}
+              {!devices.length ? (
+                <li className="text-sm text-zinc-500">No devices enrolled.</li>
+              ) : null}
+            </ul>
+          </section>
         </>
       )}
     </main>
@@ -242,28 +182,9 @@ function Fact({
 }) {
   return (
     <div className="rounded-xl bg-zinc-50 px-3 py-3">
-      <dt className="text-[11px] uppercase tracking-wide text-zinc-400">
-        {label}
-      </dt>
+      <dt className="text-[11px] uppercase tracking-wide text-zinc-400">{label}</dt>
       <dd className="mt-1 break-words text-sm font-medium text-zinc-900">{value}</dd>
       {hint ? <p className="mt-0.5 text-xs text-zinc-500">{hint}</p> : null}
-    </div>
-  );
-}
-
-function MeterCard({
-  label,
-  percent,
-}: {
-  label: string;
-  percent: number | null;
-}) {
-  return (
-    <div className="rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-sm">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-        {label}
-      </p>
-      <UsageBar percent={percent} />
     </div>
   );
 }

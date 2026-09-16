@@ -5,7 +5,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
-  const data = await employeeDetail(id);
+  const data = await employeeDetail(id, { history: false });
   if (!data) {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }

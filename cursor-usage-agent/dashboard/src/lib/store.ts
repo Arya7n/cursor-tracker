@@ -476,7 +476,10 @@ export async function overview() {
   };
 }
 
-export async function employeeDetail(id: string) {
+export async function employeeDetail(
+  id: string,
+  opts?: { history?: boolean },
+) {
   await ready();
   const sql = getSql();
   const empRows = await sql<Record<string, unknown>[]>`
@@ -489,11 +492,12 @@ export async function employeeDetail(id: string) {
       SELECT * FROM devices WHERE employee_id = ${id}
     `
   ).map(mapDevice);
+  const limit = opts?.history ? 50 : 1;
   const snapshots = (
     await sql<Record<string, unknown>[]>`
       SELECT * FROM snapshots WHERE employee_id = ${id}
       ORDER BY timestamp DESC
-      LIMIT 50
+      LIMIT ${limit}
     `
   ).map((s) => {
     const snap = mapSnapshot(s);
