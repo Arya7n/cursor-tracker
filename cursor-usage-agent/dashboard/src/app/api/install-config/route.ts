@@ -15,5 +15,10 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({ enrollmentSecret });
+  const windowsDownloadUrl =
+    process.env.WINDOWS_DOWNLOAD_URL ||
+    process.env.NEXT_PUBLIC_WINDOWS_DOWNLOAD_URL ||
+    '/downloads/CursorUsageSetup-latest.exe';
+
+  return NextResponse.json({ enrollmentSecret, windowsDownloadUrl });
 }

@@ -20,6 +20,9 @@ function toEncodedCommand(script: string): string {
 export default function EmployeeInstallPage() {
   const [origin, setOrigin] = useState('');
   const [secret, setSecret] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState(
+    '/downloads/CursorUsageSetup-latest.exe',
+  );
   const [configError, setConfigError] = useState<string | null>(null);
   const [os, setOs] = useState<'windows' | 'mac'>('windows');
   const [hasWindowsApp, setHasWindowsApp] = useState(false);
@@ -36,6 +39,7 @@ export default function EmployeeInstallPage() {
         const res = await fetch('/api/install-config', { cache: 'no-store' });
         const json = (await res.json()) as {
           enrollmentSecret?: string;
+          windowsDownloadUrl?: string;
           error?: string;
         };
         if (!res.ok) {
@@ -43,6 +47,7 @@ export default function EmployeeInstallPage() {
         }
         if (!cancelled) {
           setSecret(json.enrollmentSecret || null);
+          if (json.windowsDownloadUrl) setDownloadUrl(json.windowsDownloadUrl);
           setConfigError(null);
         }
       } catch (e) {
@@ -63,7 +68,12 @@ export default function EmployeeInstallPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch('/downloads/CursorUsageSetup-latest.exe', {
+        // External GitHub Release URLs are assumed available.
+        if (/^https?:\/\//i.test(downloadUrl)) {
+          if (!cancelled) setHasWindowsApp(true);
+          return;
+        }
+        const res = await fetch(downloadUrl, {
           method: 'HEAD',
           cache: 'no-store',
         });
@@ -75,7 +85,7 @@ export default function EmployeeInstallPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [downloadUrl]);
 
   const ready = Boolean(origin && secret);
 
@@ -168,7 +178,7 @@ export default function EmployeeInstallPage() {
                     </p>
                   </div>
                   <a
-                    href="/downloads/CursorUsageSetup-latest.exe"
+                    href={downloadUrl}
                     className="inline-flex items-center justify-center rounded-lg bg-teal-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700"
                   >
                     Download for Windows
