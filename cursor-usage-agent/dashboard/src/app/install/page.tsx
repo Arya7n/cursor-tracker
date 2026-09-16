@@ -56,7 +56,7 @@ export default function EmployeeInstallPage() {
       <ol className="mt-6 grid gap-3 sm:grid-cols-3">
         <Step n="1" title="Node 22" body="Install Node.js 22 LTS if it is not already on the machine." />
         <Step n="2" title="Stay signed in" body="Cursor Desktop must be signed in as the developer." />
-        <Step n="3" title="Run the command" body="Copy the command for your OS. The agent checks in every minute and reports when an admin clicks Sync now." />
+        <Step n="3" title="Run the command" body="Copy the command for your OS. The agent reports about every 20 minutes, or when an admin clicks Sync now (next check-in)." />
       </ol>
 
       <section className="mt-8 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 shadow-sm">

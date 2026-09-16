@@ -82,7 +82,7 @@ export default function AdminDashboard() {
       const devices = Number(json.deviceCount) || 0;
       setSyncNote(
         devices > 1
-          ? `Asked ${devices} devices to report. This PC updates now; others check in within a minute.`
+          ? `Asked ${devices} devices to report. This PC updates now; others on their next 20-minute check-in.`
           : 'This PC synced. Other enrolled PCs report when their agent checks in.',
       );
       await load(true);

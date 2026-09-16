@@ -60,26 +60,48 @@ try {
 }
 
 $taskName = "CursorUsageAgentSync"
-$wrapper = Join-Path $installDir "sync-task.cmd"
-@(
-  "@echo off"
-  "cd /d `"$installDir`""
-  "call npm run tick"
-) | Set-Content -Path $wrapper -Encoding ASCII
+$nodeExe = (Get-Command node).Source
+$wscript = Join-Path $env:SystemRoot "System32\wscript.exe"
+$vbs = Join-Path $installDir "sync-hidden.vbs"
+$oldCmd = Join-Path $installDir "sync-task.cmd"
+if (Test-Path $oldCmd) { Remove-Item -LiteralPath $oldCmd -Force }
+
+@"
+Option Explicit
+Dim sh
+Set sh = CreateObject("WScript.Shell")
+sh.CurrentDirectory = "$($installDir.Replace('"','""'))"
+sh.Run """$($nodeExe.Replace('"','""'))"" --experimental-sqlite --import tsx src/main.ts tick", 0, False
+"@ | Set-Content -Path $vbs -Encoding ASCII
 
 $prevEap = $ErrorActionPreference
 $ErrorActionPreference = "SilentlyContinue"
 cmd.exe /c "schtasks /Delete /TN $taskName /F" | Out-Null
+Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 $ErrorActionPreference = $prevEap
 
-cmd.exe /c "schtasks /Create /TN $taskName /TR `"$wrapper`" /SC MINUTE /MO 1 /F"
-if ($LASTEXITCODE -ne 0) {
+$registered = $false
+try {
+  $action = New-ScheduledTaskAction -Execute $wscript -Argument "//nologo //B `"$vbs`"" -WorkingDirectory $installDir
+  $trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).Date) -RepetitionInterval (New-TimeSpan -Minutes 20) -RepetitionDuration (New-TimeSpan -Days 3650)
+  $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 3)
+  $settings.Hidden = $true
+  $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
+  $registered = $true
+} catch {
+  $tr = "$wscript //nologo //B `"$vbs`""
+  cmd.exe /c "schtasks /Create /TN $taskName /TR `"$tr`" /SC MINUTE /MO 20 /F"
+  if ($LASTEXITCODE -eq 0) { $registered = $true }
+}
+
+if (-not $registered) {
   Write-Host ""
-  Write-Host "Enroll succeeded, but the scheduled task was not created." -ForegroundColor Yellow
+  Write-Host "Enroll succeeded, but the background task was not created." -ForegroundColor Yellow
   Write-Host "Manual sync:  cd `"$installDir`"; npm run sync"
 } else {
   Write-Host ""
-  Write-Host "Installed. This PC checks in every minute and reports usage about every 20 minutes, or right away when an admin clicks Sync now."
+  Write-Host "Installed. Sync runs hidden in the background (no terminal window)."
 }
 
 Write-Host "Dashboard: $Server"

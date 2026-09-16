@@ -8,6 +8,6 @@ Cursor Usage Agent — employee PC
 
    powershell -ExecutionPolicy Bypass -File .\install.ps1 -Server "https://cursor-usage.yourcompany.com" -Secret "THE_SECRET_IT_GIVES_YOU"
 
-That enrolls this PC and syncs usage every 20 minutes to the company dashboard.
+That enrolls this PC. Usage syncs in the background (no terminal window).
 
 IT/admin only: they host the dashboard. You only run this installer.

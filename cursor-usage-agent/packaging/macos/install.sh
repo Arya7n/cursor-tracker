@@ -56,7 +56,7 @@ cat > "$PLIST" <<EOF
     <string>cd "$INSTALL_DIR" && npm run tick</string>
   </array>
   <key>StartInterval</key>
-  <integer>60</integer>
+  <integer>1200</integer>
   <key>RunAtLoad</key>
   <true/>
 </dict>
@@ -66,6 +66,6 @@ EOF
 launchctl bootout "gui/$(id -u)/com.cursorusage.agent" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || launchctl load "$PLIST"
 
-echo "Installed. Checks in every minute. Dashboard: $SERVER"
+echo "Installed. Syncs in the background about every 20 minutes. Dashboard: $SERVER"
 echo "Manual sync: cd \"$INSTALL_DIR\" && npm run sync"
 echo "Uninstall: bash \"$HERE/uninstall.sh\""
