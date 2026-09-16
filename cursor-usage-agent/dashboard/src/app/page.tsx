@@ -53,6 +53,7 @@ export default function AdminDashboard() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSize>(10);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [, setTick] = useState(0);
 
   const load = useCallback(async (quiet = false) => {
@@ -97,6 +98,28 @@ export default function AdminDashboard() {
       setSyncing(false);
     }
   }, [load]);
+
+  const removeDeveloper = useCallback(
+    async (d: DeveloperRow) => {
+      const ok = window.confirm(
+        `Remove ${d.name} from the hub?\n\nThis clears their dashboard data. If their PC agent is still installed, they will show up again on the next sync.`,
+      );
+      if (!ok) return;
+      setRemovingId(d.id);
+      setError(null);
+      try {
+        const res = await fetch(`/api/developers/${d.id}`, { method: 'DELETE' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'Remove failed');
+        await load(true);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Remove failed');
+      } finally {
+        setRemovingId(null);
+      }
+    },
+    [load],
+  );
 
   useEffect(() => {
     void load();
@@ -278,6 +301,8 @@ export default function AdminDashboard() {
                   <DeveloperCard
                     developer={d}
                     onOpen={() => router.push(`/developers/${d.id}`)}
+                    onRemove={() => void removeDeveloper(d)}
+                    removing={removingId === d.id}
                   />
                 </li>
               ))}
@@ -291,6 +316,9 @@ export default function AdminDashboard() {
                     <th className="px-3 py-2.5 font-medium">Cycle</th>
                     <th className="px-3 py-2.5 font-medium">Usage</th>
                     <th className="px-5 py-2.5 font-medium">Last sync</th>
+                    <th className="px-4 py-2.5 font-medium">
+                      <span className="sr-only">Remove</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -299,6 +327,8 @@ export default function AdminDashboard() {
                       key={d.id}
                       developer={d}
                       onOpen={() => router.push(`/developers/${d.id}`)}
+                      onRemove={() => void removeDeveloper(d)}
+                      removing={removingId === d.id}
                     />
                   ))}
                 </tbody>
@@ -347,44 +377,62 @@ function cycleLeftLabel(end: string | null) {
 function DeveloperCard({
   developer: d,
   onOpen,
+  onRemove,
+  removing,
 }: {
   developer: DeveloperRow;
   onOpen: () => void;
+  onRemove: () => void;
+  removing: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="flex w-full flex-col gap-3 px-3 py-4 text-left hover:bg-teal-50/60 sm:px-4"
-    >
-      <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-teal-100 text-[11px] font-semibold text-teal-900">
-          {initials(d.name)}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium text-zinc-900">{d.name}</span>
-          <span className="block break-all text-xs text-zinc-500">{d.email}</span>
-        </span>
-        <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-700">
-          {d.plan ?? '—'}
-        </span>
-      </div>
-      <UsageBar percent={d.percent} />
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-zinc-500">
-        <span>{cycleLabel(d.billingCycleStart, d.billingCycleEnd)}</span>
-        <span>{cycleLeftLabel(d.billingCycleEnd)}</span>
-        <span className="w-full sm:w-auto">Last sync {relativeTime(d.lastSeenAt)}</span>
-      </div>
-    </button>
+    <div className="px-3 py-4 sm:px-4">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full flex-col gap-3 text-left hover:opacity-90"
+      >
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-teal-100 text-[11px] font-semibold text-teal-900">
+            {initials(d.name)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium text-zinc-900">{d.name}</span>
+            <span className="block break-all text-xs text-zinc-500">{d.email}</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-700">
+            {d.plan ?? '—'}
+          </span>
+        </div>
+        <UsageBar percent={d.percent} />
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-zinc-500">
+          <span>{cycleLabel(d.billingCycleStart, d.billingCycleEnd)}</span>
+          <span>{cycleLeftLabel(d.billingCycleEnd)}</span>
+          <span className="w-full sm:w-auto">Last sync {relativeTime(d.lastSeenAt)}</span>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={removing}
+        className="mt-3 text-xs font-medium text-zinc-500 hover:text-rose-700 disabled:opacity-50"
+      >
+        {removing ? 'Removing…' : 'Remove from hub'}
+      </button>
+    </div>
   );
 }
 
 function DeveloperTableRow({
   developer: d,
   onOpen,
+  onRemove,
+  removing,
 }: {
   developer: DeveloperRow;
   onOpen: () => void;
+  onRemove: () => void;
+  removing: boolean;
 }) {
   return (
     <tr
@@ -427,6 +475,20 @@ function DeveloperTableRow({
       </td>
       <td className="whitespace-nowrap px-5 py-3.5 text-zinc-600">
         {relativeTime(d.lastSeenAt)}
+      </td>
+      <td
+        className="px-4 py-3.5 text-right"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={removing}
+          className="text-xs font-medium text-zinc-400 hover:text-rose-700 disabled:opacity-50"
+        >
+          {removing ? 'Removing…' : 'Remove'}
+        </button>
       </td>
     </tr>
   );

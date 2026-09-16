@@ -95,4 +95,10 @@ async function runMigrations() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS removed_emails (
+      email TEXT PRIMARY KEY,
+      removed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

@@ -9,7 +9,6 @@ const PUBLIC_PATHS = [
   '/bootstrap.ps1',
   '/bootstrap.sh',
   '/employee-kit',
-  '/ops',
 ];
 
 export function middleware(req: NextRequest) {

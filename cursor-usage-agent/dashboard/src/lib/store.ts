@@ -476,6 +476,22 @@ export async function overview() {
   };
 }
 
+export async function removeEmployee(id: string): Promise<{ email: string }> {
+  await ready();
+  const sql = getSql();
+  return sql.begin(async (txn) => {
+    const empRows = await txn<Record<string, unknown>[]>`
+      SELECT * FROM employees WHERE id = ${id} LIMIT 1
+    `;
+    if (!empRows[0]) throw new Error('Not found');
+    const email = String(empRows[0].email).toLowerCase();
+    await txn`DELETE FROM snapshots WHERE employee_id = ${id}`;
+    await txn`DELETE FROM devices WHERE employee_id = ${id}`;
+    await txn`DELETE FROM employees WHERE id = ${id}`;
+    return { email };
+  });
+}
+
 export async function employeeDetail(
   id: string,
   opts?: { history?: boolean },

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { UsageBar, UsageRing } from '@/components/UsageMeter';
+import { Sparkline, UsageBar, UsageRing } from '@/components/UsageMeter';
 import { cursorUsagePercent } from '@/lib/percent';
 import {
   asNumber,
@@ -11,6 +11,7 @@ import {
   asString,
   cycleLabel,
   daysLeft,
+  formatPct,
   initials,
   relativeTime,
 } from '@/lib/format';
@@ -26,6 +27,7 @@ type Device = {
 };
 
 type Snapshot = {
+  id: string;
   timestamp: string;
   plan: string | null;
   billingCycle: { start?: string; end?: string } | null;
@@ -34,9 +36,11 @@ type Snapshot = {
 
 export default function DeveloperDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     if (!params.id) return;
@@ -67,12 +71,53 @@ export default function DeveloperDetailPage() {
   const left = daysLeft(cycle?.end);
   const autoPercent = asNumber(usage.autoPercentUsed);
   const apiPercent = asNumber(usage.apiPercentUsed);
+  const history = useMemo(
+    () =>
+      [...snapshots]
+        .reverse()
+        .map((s) => cursorUsagePercent(asRecord(s.usage)))
+        .filter((n): n is number => n != null),
+    [snapshots],
+  );
+
+  async function removeFromHub() {
+    if (!params.id) return;
+    const label = employee?.name || employee?.email || 'this developer';
+    const ok = window.confirm(
+      `Remove ${label} from the hub?\n\nThis clears their dashboard data. If their PC agent is still installed, they will show up again on the next sync.`,
+    );
+    if (!ok) return;
+    setRemoving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/developers/${params.id}`, { method: 'DELETE' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Remove failed');
+      router.push('/');
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Remove failed');
+      setRemoving(false);
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-4xl px-3 py-6 sm:px-6 sm:py-8">
-      <Link href="/" className="text-sm font-medium text-teal-800 hover:underline">
-        ← Team
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/" className="text-sm font-medium text-teal-800 hover:underline">
+          ← Team
+        </Link>
+        {data ? (
+          <button
+            type="button"
+            onClick={() => void removeFromHub()}
+            disabled={removing}
+            className="text-sm font-medium text-zinc-500 hover:text-rose-700 disabled:opacity-50"
+          >
+            {removing ? 'Removing…' : 'Remove from hub'}
+          </button>
+        ) : null}
+      </div>
 
       {error ? (
         <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
@@ -140,6 +185,36 @@ export default function DeveloperDetailPage() {
               </div>
             </section>
           )}
+
+          <section className="mt-4 rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-zinc-900">Recent trend</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              Included usage from the last {snapshots.length} sync
+              {snapshots.length === 1 ? '' : 's'}
+            </p>
+            <div className="mt-3">
+              <Sparkline points={history} />
+            </div>
+            {snapshots.length ? (
+              <ol className="mt-4 max-h-64 space-y-2 overflow-auto text-sm">
+                {snapshots.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex flex-col gap-1 rounded-lg bg-zinc-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                  >
+                    <span className="break-words text-zinc-500">
+                      {new Date(s.timestamp).toLocaleString()}
+                    </span>
+                    <span className="font-mono text-xs font-semibold tabular-nums text-zinc-800">
+                      {formatPct(cursorUsagePercent(asRecord(s.usage)))}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-4 text-sm text-zinc-500">No sync history yet.</p>
+            )}
+          </section>
 
           <section className="mt-4 rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-900">Devices</h2>
