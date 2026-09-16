@@ -175,20 +175,23 @@ export default function AdminDashboard() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-6 sm:py-8">
-      <div className="mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
+      <div className="anim-rise mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+          <p className="status-live font-mono text-[11px] uppercase tracking-[0.22em] text-teal-800">
+            live console
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
             Team usage
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">
-            Included Cursor usage for the current billing cycle. Same % the IDE
+            Included Cursor usage for the current billing cycle — same % the IDE
             shows. Agents report about every 20 minutes.
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-          <p className="text-xs text-zinc-500 sm:mr-1">
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500 sm:mr-1">
             {updatedAt
-              ? `Updated ${relativeTime(new Date(updatedAt).toISOString())}`
+              ? `updated ${relativeTime(new Date(updatedAt).toISOString())}`
               : '—'}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -196,7 +199,7 @@ export default function AdminDashboard() {
               type="button"
               onClick={() => void syncNow()}
               disabled={syncing}
-              className="rounded-lg bg-teal-800 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-700 disabled:opacity-50 sm:px-4"
+              className="rounded-xl bg-teal-800 px-3 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(15,118,110,0.25)] hover:bg-teal-700 disabled:opacity-50 sm:px-4"
             >
               {syncing ? 'Syncing…' : 'Sync now'}
             </button>
@@ -204,7 +207,7 @@ export default function AdminDashboard() {
               type="button"
               onClick={() => void load()}
               disabled={loading}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50 sm:px-4"
+              className="rounded-xl border border-teal-900/15 bg-white/80 px-3 py-2.5 text-sm font-semibold text-zinc-800 hover:border-teal-700/30 hover:bg-white disabled:opacity-50 sm:px-4"
             >
               {loading ? 'Loading…' : 'Refresh'}
             </button>
@@ -213,13 +216,13 @@ export default function AdminDashboard() {
       </div>
 
       {syncNote ? (
-        <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+        <div className="anim-fade mb-6 rounded-xl border border-teal-200/80 bg-teal-50/90 px-4 py-3 text-sm text-teal-900">
           {syncNote}
         </div>
       ) : null}
 
       {error ? (
-        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <div className="anim-fade mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
           {error}
         </div>
       ) : null}
@@ -229,22 +232,27 @@ export default function AdminDashboard() {
           label="Developers"
           value={String(t?.developers ?? 0)}
           hint={`${t?.activeDevelopers ?? 0} reported in the last 24h`}
+          delay="anim-rise-delay-1"
         />
         <StatCard
           label="Average usage"
           value={formatPct(t?.averageUsagePercent ?? null)}
           hint="Team average for this cycle"
+          delay="anim-rise-delay-2"
         />
         <StatCard
           label="Devices"
           value={String(t?.devices ?? rows.reduce((n, d) => n + d.deviceCount, 0))}
           hint="Enrolled machines"
+          delay="anim-rise-delay-3"
         />
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-zinc-100 px-3 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
-          <h2 className="text-sm font-semibold text-zinc-900">Developers</h2>
+      <section className="panel anim-rise anim-rise-delay-4 overflow-hidden rounded-2xl">
+        <div className="flex flex-col gap-3 border-b border-teal-900/8 px-3 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900">
+            Developers
+          </h2>
           <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap md:items-center">
             <label className="sr-only" htmlFor="team-search">
               Search developers
@@ -254,12 +262,12 @@ export default function AdminDashboard() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search name, email, plan"
-              className="col-span-2 w-full min-w-0 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none ring-teal-700/30 placeholder:text-zinc-400 focus:ring-2 md:w-56"
+              className="col-span-2 w-full min-w-0 rounded-xl border border-teal-900/10 bg-white/90 px-3 py-2 text-sm outline-none ring-teal-700/25 placeholder:text-zinc-400 focus:ring-2 md:w-56"
             />
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortId)}
-              className="min-w-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-sm text-zinc-700"
+              className="min-w-0 rounded-xl border border-teal-900/10 bg-white/90 px-2.5 py-2 text-sm text-zinc-700"
             >
               <option value="name">Sort: name</option>
               <option value="usage">Sort: usage</option>
@@ -273,7 +281,7 @@ export default function AdminDashboard() {
                   const v = e.target.value;
                   setPageSize(v === 'all' ? 'all' : (Number(v) as PageSize));
                 }}
-                className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-sm text-zinc-700"
+                className="min-w-0 flex-1 rounded-xl border border-teal-900/10 bg-white/90 px-2.5 py-2 text-sm text-zinc-700"
               >
                 {PAGE_SIZES.map((n) => (
                   <option key={String(n)} value={n}>
@@ -295,7 +303,7 @@ export default function AdminDashboard() {
           </p>
         ) : (
           <>
-            <ul className="divide-y divide-zinc-100 md:hidden">
+            <ul className="divide-y divide-teal-900/6 md:hidden">
               {paged.map((d) => (
                 <li key={d.id}>
                   <DeveloperCard
@@ -310,13 +318,13 @@ export default function AdminDashboard() {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[44rem] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-100 text-[11px] uppercase tracking-wide text-zinc-400">
-                    <th className="px-5 py-2.5 font-medium">Developer</th>
-                    <th className="px-3 py-2.5 font-medium">Plan</th>
-                    <th className="px-3 py-2.5 font-medium">Cycle</th>
-                    <th className="px-3 py-2.5 font-medium">Usage</th>
-                    <th className="px-5 py-2.5 font-medium">Last sync</th>
-                    <th className="px-4 py-2.5 font-medium">
+                  <tr className="border-b border-teal-900/8 font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-400">
+                    <th className="px-5 py-3 font-medium">Developer</th>
+                    <th className="px-3 py-3 font-medium">Plan</th>
+                    <th className="px-3 py-3 font-medium">Cycle</th>
+                    <th className="px-3 py-3 font-medium">Usage</th>
+                    <th className="px-5 py-3 font-medium">Last sync</th>
+                    <th className="px-4 py-3 font-medium">
                       <span className="sr-only">Remove</span>
                     </th>
                   </tr>
@@ -334,8 +342,8 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-col gap-3 border-t border-zinc-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <p className="text-center text-xs text-zinc-500 sm:text-left">
+            <div className="flex flex-col gap-3 border-t border-teal-900/8 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-center font-mono text-[11px] uppercase tracking-[0.12em] text-zinc-500 sm:text-left">
                 {total === 0 ? 'No rows' : `Showing ${from}–${to} of ${total}`}
               </p>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -343,18 +351,18 @@ export default function AdminDashboard() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage <= 1 || pageSize === 'all'}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-xl border border-teal-900/15 bg-white/80 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Back
                 </button>
-                <span className="whitespace-nowrap text-center text-xs tabular-nums text-zinc-500">
-                  Page {currentPage} of {pageCount}
+                <span className="whitespace-nowrap text-center font-mono text-[11px] tabular-nums text-zinc-500">
+                  {currentPage} / {pageCount}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                   disabled={currentPage >= pageCount || pageSize === 'all'}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-xl border border-teal-900/15 bg-white/80 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Next
                 </button>
@@ -393,14 +401,14 @@ function DeveloperCard({
         className="flex w-full flex-col gap-3 text-left hover:opacity-90"
       >
         <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-teal-100 text-[11px] font-semibold text-teal-900">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-800/10 font-mono text-[11px] font-semibold text-teal-900">
             {initials(d.name)}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate font-medium text-zinc-900">{d.name}</span>
             <span className="block break-all text-xs text-zinc-500">{d.email}</span>
           </span>
-          <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-700">
+          <span className="shrink-0 rounded-lg border border-teal-900/10 bg-white/80 px-2.5 py-0.5 font-mono text-[11px] font-medium text-zinc-700">
             {d.plan ?? '—'}
           </span>
         </div>
@@ -445,11 +453,11 @@ function DeveloperTableRow({
           onOpen();
         }
       }}
-      className="cursor-pointer border-b border-zinc-50 outline-none transition hover:bg-teal-50/60 focus:bg-teal-50/80"
+      className="cursor-pointer border-b border-teal-900/5 outline-none transition hover:bg-teal-50/70 focus:bg-teal-50/90"
     >
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-teal-100 text-[11px] font-semibold text-teal-900">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-800/10 font-mono text-[11px] font-semibold text-teal-900">
             {initials(d.name)}
           </span>
           <span className="min-w-0">
@@ -462,7 +470,7 @@ function DeveloperTableRow({
         </div>
       </td>
       <td className="px-3 py-3.5">
-        <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-700">
+        <span className="rounded-lg border border-teal-900/10 bg-white/80 px-2.5 py-0.5 font-mono text-[11px] font-medium text-zinc-700">
           {d.plan ?? '—'}
         </span>
       </td>
@@ -498,17 +506,19 @@ function StatCard({
   label,
   value,
   hint,
+  delay = '',
 }: {
   label: string;
   value: string;
   hint: string;
+  delay?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200/80 bg-white/90 px-4 py-4 shadow-sm min-w-0">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+    <div className={`panel anim-rise ${delay} min-w-0 rounded-2xl px-4 py-4`}>
+      <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-teal-800/80">
         {label}
       </p>
-      <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-zinc-900">
+      <p className="mt-2 font-mono text-2xl font-semibold tracking-tight tabular-nums text-zinc-900">
         {value}
       </p>
       <p className="mt-1 text-xs leading-5 text-zinc-500">{hint}</p>
@@ -519,10 +529,10 @@ function StatCard({
 function EmptyState() {
   return (
     <div className="px-5 py-12 text-center">
-      <p className="text-sm font-medium text-zinc-800">Waiting for the first sync</p>
+      <p className="text-sm font-semibold text-zinc-800">Waiting for the first sync</p>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500">
         Click <strong>Sync now</strong>, or send teammates to the{' '}
-        <a href="/install" className="text-teal-800 underline">
+        <a href="/install" className="font-semibold text-teal-800 underline-offset-2 hover:underline">
           install page
         </a>
         . Rows appear after the agent reports once.

@@ -10,6 +10,7 @@
     "predist": "npm --prefix ../agent install --omit=dev",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win nsis",
+    "dist:linux": "electron-builder --linux AppImage",
     "dist:publish": "npm run dist && node scripts/publish-download.mjs"
   },
   "dependencies": {},
@@ -52,6 +53,18 @@
         }
       ],
       "artifactName": "CursorUsageSetup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Utility",
+      "artifactName": "CursorUsage-${version}.${ext}"
     },
     "nsis": {
       "oneClick": true,

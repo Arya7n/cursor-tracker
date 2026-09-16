@@ -1,16 +1,22 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-dm-sans), "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-space-grotesk), "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-ink: #0c1a17;
+  --color-muted: #5a6f69;
+  --color-accent: #0f766e;
+  --color-accent-bright: #14b8a6;
+  --color-panel: rgba(255, 255, 255, 0.78);
+  --color-line: rgba(15, 118, 110, 0.14);
 }
 
 :root {
-  --bg: #eef3f0;
-  --ink: #12201b;
+  --bg: #e8efec;
+  --ink: #0c1a17;
   --accent: #0f766e;
-  --card: #ffffff;
-  --muted: #5b6b64;
+  --card: rgba(255, 255, 255, 0.82);
+  --muted: #5a6f69;
 }
 
 body {
@@ -19,21 +25,205 @@ body {
   min-width: 0;
   overflow-x: hidden;
   color: var(--ink);
-  background:
-    radial-gradient(920px 460px at -10% -10%, #99f6e4 0%, transparent 42%),
-    radial-gradient(720px 380px at 110% -5%, #e7e5e4 0%, transparent 46%),
-    radial-gradient(640px 280px at 50% 120%, #ccfbf1 0%, transparent 50%),
-    var(--bg);
+  background-color: var(--bg);
   font-family: var(--font-sans);
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 480px at 8% -8%, rgba(45, 212, 191, 0.28), transparent 55%),
+    radial-gradient(760px 420px at 100% 0%, rgba(148, 163, 184, 0.22), transparent 50%),
+    radial-gradient(700px 360px at 50% 110%, rgba(20, 184, 166, 0.16), transparent 55%),
+    linear-gradient(180deg, #f3f7f5 0%, #e8efec 45%, #e2ebe7 100%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.45;
+  background-image:
+    linear-gradient(rgba(15, 118, 110, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 118, 110, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, black, transparent);
+  animation: grid-drift 28s linear infinite;
+}
+
+@keyframes grid-drift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 48px 48px, 48px 48px;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes ring-draw {
+  from {
+    stroke-dashoffset: var(--ring-len);
+  }
+}
+
+@keyframes scan-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
 ::selection {
-  background: #99f6e4;
+  background: rgba(45, 212, 191, 0.35);
 }
 
 button,
 a,
-input {
-  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease,
-    box-shadow 150ms ease, opacity 150ms ease;
+input,
+select {
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.anim-rise {
+  animation: rise-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-rise-delay-1 {
+  animation-delay: 70ms;
+}
+.anim-rise-delay-2 {
+  animation-delay: 140ms;
+}
+.anim-rise-delay-3 {
+  animation-delay: 210ms;
+}
+.anim-rise-delay-4 {
+  animation-delay: 280ms;
+}
+
+.anim-fade {
+  animation: fade-in 400ms ease both;
+}
+
+.panel {
+  border: 1px solid var(--color-line);
+  background: var(--color-panel);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 12px 40px rgba(12, 26, 23, 0.04);
+}
+
+.panel-scan {
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-scan::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 48%,
+    transparent 100%
+  );
+  animation: scan-sweep 4.5s ease-in-out infinite;
+  opacity: 0.35;
+}
+
+.status-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.status-live::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #0d9488;
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+.meter-fill {
+  transform-origin: left center;
+  animation: bar-fill 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ring-progress {
+  animation: ring-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after,
+  .anim-rise,
+  .anim-fade,
+  .panel-scan::after,
+  .status-live::before,
+  .meter-fill,
+  .ring-progress {
+    animation: none !important;
+  }
 }

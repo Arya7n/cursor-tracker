@@ -3,7 +3,7 @@ import {
   formatPct,
 } from '@/lib/format';
 
-const teal = '#0d9488';
+const teal = '#0f766e';
 
 export function UsageBar({
   percent,
@@ -18,9 +18,9 @@ export function UsageBar({
       <span className="font-mono text-sm font-semibold tabular-nums text-zinc-800">
         {formatPct(percent)}
       </span>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-teal-900/8">
         <div
-          className="h-full rounded-full bg-teal-600 transition-[width] duration-500"
+          className="meter-fill h-full rounded-full bg-gradient-to-r from-teal-700 to-teal-400"
           style={{ width: `${width}%` }}
         />
       </div>
@@ -41,16 +41,22 @@ export function UsageRing({
   const dash = (value / 100) * c;
   return (
     <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-5 sm:text-left">
-      <svg viewBox="0 0 128 128" className="h-24 w-24 shrink-0 -rotate-90 sm:h-28 sm:w-28" aria-hidden>
+      <svg
+        viewBox="0 0 128 128"
+        className="h-24 w-24 shrink-0 -rotate-90 sm:h-28 sm:w-28"
+        aria-hidden
+        style={{ ['--ring-len' as string]: String(c) }}
+      >
         <circle
           cx="64"
           cy="64"
           r={r}
           fill="none"
-          stroke="#e4e4e7"
+          stroke="rgba(15,118,110,0.12)"
           strokeWidth="10"
         />
         <circle
+          className="ring-progress"
           cx="64"
           cy="64"
           r={r}
@@ -59,10 +65,11 @@ export function UsageRing({
           strokeWidth="10"
           strokeLinecap="round"
           strokeDasharray={`${dash} ${c}`}
+          strokeDashoffset={0}
         />
       </svg>
       <div>
-        <p className="font-mono text-3xl font-semibold tabular-nums text-zinc-900 sm:text-4xl">
+        <p className="font-mono text-3xl font-semibold tracking-tight tabular-nums text-zinc-900 sm:text-4xl">
           {formatPct(percent)}
         </p>
         <p className="mt-1 text-sm text-zinc-500">
@@ -89,20 +96,29 @@ export function Sparkline({
   }
   const w = 240;
   const h = 56;
-  const d = points
-    .map((p, i) => {
-      const x = (i / (points.length - 1)) * w;
-      const y = h - 4 - (clampPct(p) / 100) * (h - 8);
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
+  const coords = points.map((p, i) => {
+    const x = (i / (points.length - 1)) * w;
+    const y = h - 4 - (clampPct(p) / 100) * (h - 8);
+    return [x, y] as const;
+  });
+  const d = coords
+    .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`)
     .join(' ');
+  const area = `${d} L${w},${h} L0,${h} Z`;
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
-      className={`h-14 w-full ${className}`}
+      className={`h-14 w-full anim-fade ${className}`}
       role="img"
       aria-label="Usage over recent syncs"
     >
+      <defs>
+        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={teal} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={teal} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#sparkFill)" />
       <path
         d={d}
         fill="none"

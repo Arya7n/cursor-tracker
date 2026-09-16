@@ -20,5 +20,14 @@ export async function GET() {
     process.env.NEXT_PUBLIC_WINDOWS_DOWNLOAD_URL ||
     '/downloads/CursorUsageSetup-latest.exe';
 
-  return NextResponse.json({ enrollmentSecret, windowsDownloadUrl });
+  const linuxDownloadUrl =
+    process.env.LINUX_DOWNLOAD_URL ||
+    process.env.NEXT_PUBLIC_LINUX_DOWNLOAD_URL ||
+    '/downloads/CursorUsage-latest.AppImage';
+
+  return NextResponse.json({
+    enrollmentSecret,
+    windowsDownloadUrl,
+    linuxDownloadUrl,
+  });
 }

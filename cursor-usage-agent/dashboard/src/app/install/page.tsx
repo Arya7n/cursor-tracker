@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+
+type OsId = 'windows' | 'linux' | 'mac';
 
 function toEncodedCommand(script: string): string {
   const bytes = new Uint8Array(script.length * 2);
@@ -17,15 +19,29 @@ function toEncodedCommand(script: string): string {
   return btoa(binary);
 }
 
+async function probeDownload(url: string): Promise<boolean> {
+  if (/^https?:\/\//i.test(url)) return true;
+  try {
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function EmployeeInstallPage() {
   const [origin, setOrigin] = useState('');
   const [secret, setSecret] = useState<string | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState(
+  const [windowsUrl, setWindowsUrl] = useState(
     '/downloads/CursorUsageSetup-latest.exe',
   );
+  const [linuxUrl, setLinuxUrl] = useState(
+    '/downloads/CursorUsage-latest.AppImage',
+  );
   const [configError, setConfigError] = useState<string | null>(null);
-  const [os, setOs] = useState<'windows' | 'mac'>('windows');
-  const [hasWindowsApp, setHasWindowsApp] = useState(false);
+  const [os, setOs] = useState<OsId>('windows');
+  const [hasWindows, setHasWindows] = useState(false);
+  const [hasLinux, setHasLinux] = useState(false);
   const [showCli, setShowCli] = useState(false);
 
   useEffect(() => {
@@ -40,6 +56,7 @@ export default function EmployeeInstallPage() {
         const json = (await res.json()) as {
           enrollmentSecret?: string;
           windowsDownloadUrl?: string;
+          linuxDownloadUrl?: string;
           error?: string;
         };
         if (!res.ok) {
@@ -47,7 +64,8 @@ export default function EmployeeInstallPage() {
         }
         if (!cancelled) {
           setSecret(json.enrollmentSecret || null);
-          if (json.windowsDownloadUrl) setDownloadUrl(json.windowsDownloadUrl);
+          if (json.windowsDownloadUrl) setWindowsUrl(json.windowsDownloadUrl);
+          if (json.linuxDownloadUrl) setLinuxUrl(json.linuxDownloadUrl);
           setConfigError(null);
         }
       } catch (e) {
@@ -67,25 +85,19 @@ export default function EmployeeInstallPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      try {
-        // External GitHub Release URLs are assumed available.
-        if (/^https?:\/\//i.test(downloadUrl)) {
-          if (!cancelled) setHasWindowsApp(true);
-          return;
-        }
-        const res = await fetch(downloadUrl, {
-          method: 'HEAD',
-          cache: 'no-store',
-        });
-        if (!cancelled) setHasWindowsApp(res.ok);
-      } catch {
-        if (!cancelled) setHasWindowsApp(false);
+      const [winOk, linuxOk] = await Promise.all([
+        probeDownload(windowsUrl),
+        probeDownload(linuxUrl),
+      ]);
+      if (!cancelled) {
+        setHasWindows(winOk);
+        setHasLinux(linuxOk);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [downloadUrl]);
+  }, [windowsUrl, linuxUrl]);
 
   const ready = Boolean(origin && secret);
 
@@ -102,7 +114,7 @@ export default function EmployeeInstallPage() {
     return `powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${toEncodedCommand(script)}`;
   }, [origin, ready, secret]);
 
-  const macCmd = useMemo(() => {
+  const unixCmd = useMemo(() => {
     if (!ready || !secret) return '';
     const safeSecret = secret.replace(/'/g, `'\\''`);
     return `curl -fsSL -H "ngrok-skip-browser-warning: 1" ${origin}/bootstrap.sh -o /tmp/cursor-usage-bootstrap.sh && bash /tmp/cursor-usage-bootstrap.sh '${origin}' '${safeSecret}'`;
@@ -110,33 +122,44 @@ export default function EmployeeInstallPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-3 py-6 sm:px-6 sm:py-8">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
-        Install Cursor Usage
-      </h1>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">
-        Download the desktop app for your PC. It starts with Windows, syncs
-        Cursor usage in the background, and appears on the{' '}
-        <Link href="/" className="font-medium text-teal-800 underline">
-          team dashboard
-        </Link>
-        .
-      </p>
+      <div className="anim-rise">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-teal-800">
+          endpoint · install
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+          Install Cursor Usage
+        </h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">
+          Download the desktop app for Windows or Linux. It syncs Cursor usage
+          in the background and appears on the{' '}
+          <Link
+            href="/"
+            className="font-semibold text-teal-800 underline-offset-2 hover:underline"
+          >
+            team dashboard
+          </Link>
+          .
+        </p>
+      </div>
 
       <ol className="mt-6 grid gap-3 sm:grid-cols-3">
         <Step
-          n="1"
+          n="01"
           title="Download"
-          body="Get the Windows app from this page (macOS app coming next)."
+          body="Get the Windows or Linux app from this page."
+          delay="anim-rise-delay-1"
         />
         <Step
-          n="2"
+          n="02"
           title="Stay signed in"
           body="Cursor Desktop must be signed in as the developer on this PC."
+          delay="anim-rise-delay-2"
         />
         <Step
-          n="3"
+          n="03"
           title="Connect"
           body="Open the app, paste this hub URL, load the secret, then Enroll & sync."
+          delay="anim-rise-delay-3"
         />
       </ol>
 
@@ -146,65 +169,83 @@ export default function EmployeeInstallPage() {
         </div>
       ) : null}
 
-      <section className="mt-8 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 shadow-sm">
-        <div className="flex gap-1 overflow-x-auto border-b border-zinc-100 p-2">
-          {(['windows', 'mac'] as const).map((id) => (
+      <section className="panel anim-rise anim-rise-delay-4 mt-8 overflow-hidden rounded-2xl">
+        <div className="flex gap-1 overflow-x-auto border-b border-teal-900/8 p-2">
+          {(
+            [
+              { id: 'windows', label: 'Windows' },
+              { id: 'linux', label: 'Linux' },
+              { id: 'mac', label: 'macOS' },
+            ] as const
+          ).map((tab) => (
             <button
-              key={id}
+              key={tab.id}
               type="button"
-              onClick={() => setOs(id)}
-              className={`min-w-0 flex-1 rounded-lg px-3 py-2 text-sm font-medium sm:flex-none ${
-                os === id
+              onClick={() => setOs(tab.id)}
+              className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-sm font-semibold sm:flex-none ${
+                os === tab.id
                   ? 'bg-teal-800 text-white'
-                  : 'text-zinc-600 hover:bg-zinc-100'
+                  : 'text-zinc-600 hover:bg-teal-50'
               }`}
             >
-              {id === 'windows' ? 'Windows' : 'macOS'}
+              {tab.label}
             </button>
           ))}
         </div>
         <div className="p-4 sm:p-5">
           {os === 'windows' ? (
-            <div className="space-y-4">
-              {hasWindowsApp ? (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold text-zinc-900">
-                      Desktop app
-                    </h2>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Installer for Windows x64. After install, open Cursor Usage
-                      from the Start menu.
-                    </p>
-                  </div>
-                  <a
-                    href={downloadUrl}
-                    className="inline-flex items-center justify-center rounded-lg bg-teal-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700"
-                  >
-                    Download for Windows
-                  </a>
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-600">
-                  Windows installer is not published on this hub yet. Build it
-                  with <code className="text-xs">npm run dist:publish</code> in{' '}
-                  <code className="text-xs">cursor-usage-agent/desktop</code>,
-                  or use the CLI fallback below.
+            <DownloadPanel
+              title="Desktop app · Windows"
+              hint="Installer for Windows x64. After install, open Cursor Usage from the Start menu."
+              href={windowsUrl}
+              label="Download for Windows"
+              available={hasWindows}
+              missingHint={
+                <>
+                  Set <code className="text-xs">WINDOWS_DOWNLOAD_URL</code> to
+                  your GitHub Release asset, or place the file at{' '}
+                  <code className="text-xs">
+                    public/downloads/CursorUsageSetup-latest.exe
+                  </code>
+                  .
+                </>
+              }
+              hubUrl={origin}
+            />
+          ) : null}
+
+          {os === 'linux' ? (
+            <DownloadPanel
+              title="Desktop app · Linux"
+              hint="AppImage (or zip) for Linux x64. Make it executable, then run it."
+              href={linuxUrl}
+              label="Download for Linux"
+              available={hasLinux}
+              missingHint={
+                <>
+                  Set <code className="text-xs">LINUX_DOWNLOAD_URL</code> to
+                  your GitHub Release asset, or place the file at{' '}
+                  <code className="text-xs">
+                    public/downloads/CursorUsage-latest.AppImage
+                  </code>
+                  .
+                </>
+              }
+              hubUrl={origin}
+              extra={
+                <p className="rounded-xl bg-zinc-50 px-3 py-2 font-mono text-[11px] leading-5 text-zinc-600">
+                  chmod +x CursorUsage*.AppImage && ./CursorUsage*.AppImage
                 </p>
-              )}
-              {origin ? (
-                <p className="rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-                  Hub URL to paste in the app:{' '}
-                  <code className="break-all text-zinc-900">{origin}</code>
-                </p>
-              ) : null}
-            </div>
-          ) : (
+              }
+            />
+          ) : null}
+
+          {os === 'mac' ? (
             <p className="text-sm text-zinc-600">
-              macOS desktop app is not ready yet. Use the CLI installer below for
-              now.
+              macOS desktop build is not ready yet. Use the CLI installer below
+              for now.
             </p>
-          )}
+          ) : null}
         </div>
       </section>
 
@@ -217,7 +258,7 @@ export default function EmployeeInstallPage() {
           {showCli ? 'Hide CLI installer' : 'Advanced: CLI installer'}
         </button>
         {showCli ? (
-          <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-sm sm:p-5">
+          <div className="panel mt-3 overflow-hidden rounded-2xl p-4 sm:p-5">
             {!ready ? (
               <p className="text-sm text-zinc-500">
                 {configError
@@ -227,14 +268,14 @@ export default function EmployeeInstallPage() {
             ) : os === 'windows' ? (
               <CommandBlock
                 title="Command Prompt or PowerShell"
-                hint="Requires Node.js 22. Pastes a one-liner that downloads and enrolls the legacy agent."
+                hint="Requires Node.js 22. One-liner enrolls the legacy agent."
                 command={winCmd}
               />
             ) : (
               <CommandBlock
                 title="Terminal"
-                hint="Requires Node.js 22. Downloads the agent and sets a Launch Agent."
-                command={macCmd}
+                hint="Requires Node.js 22. Works on Linux and macOS."
+                command={unixCmd}
               />
             )}
           </div>
@@ -244,10 +285,68 @@ export default function EmployeeInstallPage() {
   );
 }
 
-function Step({ n, title, body }: { n: string; title: string; body: string }) {
+function DownloadPanel({
+  title,
+  hint,
+  href,
+  label,
+  available,
+  missingHint,
+  hubUrl,
+  extra,
+}: {
+  title: string;
+  hint: string;
+  href: string;
+  label: string;
+  available: boolean;
+  missingHint: ReactNode;
+  hubUrl: string;
+  extra?: ReactNode;
+}) {
   return (
-    <li className="rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-teal-800">
+    <div className="space-y-4">
+      {available ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
+            <p className="mt-1 text-xs text-zinc-500">{hint}</p>
+          </div>
+          <a
+            href={href}
+            className="inline-flex items-center justify-center rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
+          >
+            {label}
+          </a>
+        </div>
+      ) : (
+        <p className="text-sm leading-6 text-zinc-600">{missingHint}</p>
+      )}
+      {extra}
+      {hubUrl ? (
+        <p className="rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          Hub URL to paste in the app:{' '}
+          <code className="break-all text-zinc-900">{hubUrl}</code>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Step({
+  n,
+  title,
+  body,
+  delay = '',
+}: {
+  n: string;
+  title: string;
+  body: string;
+  delay?: string;
+}) {
+  return (
+    <li className={`panel anim-rise ${delay} rounded-2xl p-4`}>
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-teal-800">
         Step {n}
       </p>
       <p className="mt-1 text-sm font-semibold text-zinc-900">{title}</p>
@@ -275,7 +374,7 @@ function CommandBlock({
         </div>
         <button
           type="button"
-          className="w-full shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 sm:w-auto"
+          className="w-full shrink-0 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 sm:w-auto"
           onClick={async () => {
             await navigator.clipboard.writeText(command);
             setCopied(true);

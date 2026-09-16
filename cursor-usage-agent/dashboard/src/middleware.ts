@@ -14,13 +14,18 @@ const PUBLIC_PATHS = [
   '/api/install-config',
   '/api/auth/login',
   '/api/auth/logout',
-  '/login',
   '/install',
   '/bootstrap.ps1',
   '/bootstrap.sh',
   '/employee-kit',
   '/downloads',
 ];
+
+function safeNext(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/';
+  if (raw.startsWith('/login')) return '/';
+  return raw;
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -36,11 +41,17 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value;
   const session = await verifySessionToken(token);
 
-  if (session) {
-    if (pathname === '/login') {
-      const next = req.nextUrl.searchParams.get('next') || '/';
-      return NextResponse.redirect(new URL(next, req.url));
+  // Logged-in users hitting /login go straight to the dashboard.
+  if (pathname === '/login') {
+    if (session) {
+      return NextResponse.redirect(
+        new URL(safeNext(req.nextUrl.searchParams.get('next')), req.url),
+      );
     }
+    return NextResponse.next();
+  }
+
+  if (session) {
     return NextResponse.next();
   }
 

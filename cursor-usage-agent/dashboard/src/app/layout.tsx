@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { DM_Sans, JetBrains_Mono } from 'next/font/google';
+import { Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import { AppHeader } from '@/components/AppHeader';
 import './globals.css';
 
-const sans = DM_Sans({
+const sans = Space_Grotesk({
   subsets: ['latin'],
-  variable: '--font-dm-sans',
+  variable: '--font-space-grotesk',
 });
 
 const mono = JetBrains_Mono({
@@ -19,8 +19,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Cursor Usage — company',
-  description: 'Usage from enrolled developer PCs',
+  title: 'Cursor Usage — company hub',
+  description: 'Fleet usage telemetry from enrolled developer PCs',
 };
 
 export default function RootLayout({

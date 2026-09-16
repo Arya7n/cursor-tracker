@@ -2,9 +2,12 @@ const COOKIE_NAME = 'cu_admin_session';
 const MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 days
 
 function sessionSecret(): string {
+  // Prefer an explicit secret so Edge middleware and Node routes always match.
   return (
     process.env.SESSION_SECRET ||
-    `${process.env.ADMIN_USER || ''}:${process.env.ADMIN_PASSWORD || ''}:cursor-usage-hub`
+    process.env.ENROLLMENT_SECRET ||
+    process.env.ADMIN_PASSWORD ||
+    'cursor-usage-dev-session'
   );
 }
 
@@ -70,7 +73,8 @@ export function validateAdminCredentials(
 
 export async function createSessionToken(username: string): Promise<string> {
   const exp = Math.floor(Date.now() / 1000) + MAX_AGE_SEC;
-  const payload = `${username}.${exp}`;
+  // Avoid extra dots in the payload so token.split('.') stays unambiguous.
+  const payload = `${encodeURIComponent(username)}|${exp}`;
   const sig = await hmacSign(payload, sessionSecret());
   return `${toBase64Url(new TextEncoder().encode(payload))}.${sig}`;
 }
@@ -79,16 +83,18 @@ export async function verifySessionToken(
   token: string | undefined | null,
 ): Promise<{ username: string } | null> {
   if (!token) return null;
-  const parts = token.split('.');
-  if (parts.length !== 2) return null;
-  const [payloadB64, sig] = parts;
-  if (!payloadB64 || !sig) return null;
+  const dot = token.indexOf('.');
+  if (dot <= 0 || dot === token.length - 1) return null;
+  const payloadB64 = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
   try {
     const payload = new TextDecoder().decode(fromBase64Url(payloadB64));
     const ok = await hmacVerify(payload, sig, sessionSecret());
     if (!ok) return null;
-    const [username, expStr] = payload.split('.');
-    const exp = Number(expStr);
+    const sep = payload.lastIndexOf('|');
+    if (sep <= 0) return null;
+    const username = decodeURIComponent(payload.slice(0, sep));
+    const exp = Number(payload.slice(sep + 1));
     if (!username || !Number.isFinite(exp) || exp * 1000 < Date.now()) return null;
     if (process.env.ADMIN_USER && username !== process.env.ADMIN_USER) return null;
     return { username };
@@ -97,24 +103,20 @@ export async function verifySessionToken(
   }
 }
 
-export function sessionCookieOptions(token: string) {
+export function sessionCookieOptions(token: string, secure: boolean) {
   return {
-    name: COOKIE_NAME,
-    value: token,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure,
     sameSite: 'lax' as const,
     path: '/',
     maxAge: MAX_AGE_SEC,
   };
 }
 
-export function clearSessionCookieOptions() {
+export function clearSessionCookieOptions(secure: boolean) {
   return {
-    name: COOKIE_NAME,
-    value: '',
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure,
     sameSite: 'lax' as const,
     path: '/',
     maxAge: 0,

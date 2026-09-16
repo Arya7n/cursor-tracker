@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  COOKIE_NAME,
   createSessionToken,
   sessionCookieOptions,
   validateAdminCredentials,
@@ -31,8 +32,8 @@ export async function POST(req: NextRequest) {
   }
 
   const token = await createSessionToken(username);
-  const res = NextResponse.json({ ok: true });
-  const cookie = sessionCookieOptions(token);
-  res.cookies.set(cookie);
+  const secure = req.nextUrl.protocol === 'https:';
+  const res = NextResponse.json({ ok: true, redirectTo: '/' });
+  res.cookies.set(COOKIE_NAME, token, sessionCookieOptions(token, secure));
   return res;
 }
