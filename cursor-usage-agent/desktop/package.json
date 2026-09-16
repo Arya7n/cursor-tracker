@@ -9,7 +9,8 @@
     "start": "electron .",
     "predist": "npm --prefix ../agent install --omit=dev",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder --win nsis",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win nsis",
     "dist:linux": "electron-builder --linux AppImage",
     "dist:publish": "npm run dist && node scripts/publish-download.mjs"
   },
