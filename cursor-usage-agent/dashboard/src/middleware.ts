@@ -1,5 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import {
+  COOKIE_NAME,
+  adminCredentialsConfigured,
+  verifySessionToken,
+} from '@/lib/admin-session';
 
 const PUBLIC_PATHS = [
   '/api/agents/register',
@@ -7,6 +12,9 @@ const PUBLIC_PATHS = [
   '/api/agents/me',
   '/api/usage/report',
   '/api/install-config',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/login',
   '/install',
   '/bootstrap.ps1',
   '/bootstrap.sh',
@@ -14,40 +22,39 @@ const PUBLIC_PATHS = [
   '/downloads',
 ];
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();
   }
 
-  const user = process.env.ADMIN_USER;
-  const password = process.env.ADMIN_PASSWORD;
-  if (!user || !password) {
+  if (!adminCredentialsConfigured()) {
     return NextResponse.next();
   }
 
-  const header = req.headers.get('authorization') || '';
-  const ok = header.startsWith('Basic ')
-    ? validBasic(header.slice(6), user, password)
-    : false;
+  const token = req.cookies.get(COOKIE_NAME)?.value;
+  const session = await verifySessionToken(token);
 
-  if (ok) return NextResponse.next();
-
-  return new NextResponse('Admin login required', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Cursor Usage Admin"' },
-  });
-}
-
-function validBasic(b64: string, user: string, password: string): boolean {
-  try {
-    const decoded = atob(b64);
-    const idx = decoded.indexOf(':');
-    if (idx < 0) return false;
-    return decoded.slice(0, idx) === user && decoded.slice(idx + 1) === password;
-  } catch {
-    return false;
+  if (session) {
+    if (pathname === '/login') {
+      const next = req.nextUrl.searchParams.get('next') || '/';
+      return NextResponse.redirect(new URL(next, req.url));
+    }
+    return NextResponse.next();
   }
+
+  const wantsJson =
+    pathname.startsWith('/api/') ||
+    req.headers.get('accept')?.includes('application/json');
+
+  if (wantsJson) {
+    return NextResponse.json({ error: 'Admin login required' }, { status: 401 });
+  }
+
+  const login = new URL('/login', req.url);
+  login.searchParams.set('next', pathname);
+  return NextResponse.redirect(login);
 }
 
 export const config = {

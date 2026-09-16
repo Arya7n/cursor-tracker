@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const links = [
   { href: '/', label: 'Team' },
@@ -10,6 +10,18 @@ const links = [
 
 export function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  if (pathname === '/login') {
+    return null;
+  }
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.replace('/login');
+    router.refresh();
+  }
+
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-50 border-b border-zinc-200/80 bg-white/90 backdrop-blur-md">
@@ -27,27 +39,36 @@ export function AppHeader() {
               </span>
             </span>
           </Link>
-          <nav className="flex shrink-0 items-center gap-0.5 rounded-full bg-zinc-100/80 p-0.5 sm:gap-1 sm:p-1">
-            {links.map((link) => {
-              const active =
-                link.href === '/'
-                  ? pathname === '/' || pathname.startsWith('/developers')
-                  : pathname.startsWith(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`rounded-full px-2.5 py-1.5 text-xs font-medium transition sm:px-3.5 sm:text-sm ${
-                    active
-                      ? 'bg-white text-zinc-900 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-800'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="flex shrink-0 items-center gap-2">
+            <nav className="flex items-center gap-0.5 rounded-full bg-zinc-100/80 p-0.5 sm:gap-1 sm:p-1">
+              {links.map((link) => {
+                const active =
+                  link.href === '/'
+                    ? pathname === '/' || pathname.startsWith('/developers')
+                    : pathname.startsWith(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`rounded-full px-2.5 py-1.5 text-xs font-medium transition sm:px-3.5 sm:text-sm ${
+                      active
+                        ? 'bg-white text-zinc-900 shadow-sm'
+                        : 'text-zinc-500 hover:text-zinc-800'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 sm:px-3 sm:text-sm"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
       <div className="h-14 sm:h-16" aria-hidden />
