@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cursor Usage</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand">
+          <span class="mark">CU</span>
+          <div>
+            <h1>Cursor Usage</h1>
+            <p class="sub">Your usage — same view your admin sees for you</p>
+          </div>
+        </div>
+      </header>
+
+      <section id="usageCard" class="card" hidden>
+        <div class="usage-head">
+          <div>
+            <p id="userName" class="user-name">—</p>
+            <p id="userEmail" class="user-email">—</p>
+          </div>
+          <div class="ring-wrap">
+            <div id="usageRing" class="ring" style="--p: 0">
+              <span id="usagePct">—</span>
+            </div>
+            <p class="ring-caption">Included usage</p>
+          </div>
+        </div>
+        <p id="displayMessage" class="banner" hidden></p>
+        <dl class="facts">
+          <div>
+            <dt>Plan</dt>
+            <dd id="plan">—</dd>
+          </div>
+          <div>
+            <dt>Billing cycle</dt>
+            <dd id="cycle">—</dd>
+            <p id="cycleHint" class="hint-inline"></p>
+          </div>
+          <div>
+            <dt>Last sync</dt>
+            <dd id="usageLastSync">—</dd>
+          </div>
+        </dl>
+        <div class="bars">
+          <div>
+            <p class="bar-label">Auto / included</p>
+            <div class="bar"><span id="autoBar" style="width: 0%"></span></div>
+            <p id="autoPct" class="bar-value">—</p>
+          </div>
+          <div>
+            <p class="bar-label">API usage</p>
+            <div class="bar"><span id="apiBar" style="width: 0%"></span></div>
+            <p id="apiPct" class="bar-value">—</p>
+          </div>
+        </div>
+        <h3 class="section-title">Recent syncs</h3>
+        <ol id="history" class="history"></ol>
+        <h3 class="section-title">Devices</h3>
+        <ul id="devices" class="devices"></ul>
+      </section>
+
+      <section id="setup" class="card">
+        <h2>Connect this PC</h2>
+        <p class="hint">
+          Paste your company hub URL. The enrollment secret is loaded from the
+          hub automatically when possible.
+        </p>
+        <label>
+          Hub URL
+          <input
+            id="serverUrl"
+            type="url"
+            placeholder="https://your-hub.vercel.app"
+            autocomplete="off"
+          />
+        </label>
+        <label>
+          Enrollment secret
+          <input
+            id="secret"
+            type="password"
+            placeholder="Loaded from hub or paste manually"
+            autocomplete="off"
+          />
+        </label>
+        <div class="row">
+          <button id="loadSecret" type="button" class="secondary">
+            Load secret from hub
+          </button>
+          <button id="enroll" type="button" class="primary">
+            Enroll &amp; sync
+          </button>
+        </div>
+      </section>
+
+      <section id="statusCard" class="card">
+        <h2>Status</h2>
+        <dl>
+          <div>
+            <dt>Enrolled</dt>
+            <dd id="enrolled">—</dd>
+          </div>
+          <div>
+            <dt>Last sync</dt>
+            <dd id="lastSync">—</dd>
+          </div>
+          <div>
+            <dt>Start with Windows</dt>
+            <dd>
+              <label class="toggle">
+                <input id="openAtLogin" type="checkbox" />
+                <span>Launch in background when I sign in</span>
+              </label>
+            </dd>
+          </div>
+        </dl>
+        <p id="message" class="message" hidden></p>
+        <div class="row">
+          <button id="sync" type="button" class="primary">Sync now</button>
+          <button id="refreshUsage" type="button" class="secondary">
+            Refresh my data
+          </button>
+          <button id="openHub" type="button" class="secondary">
+            Open team hub
+          </button>
+        </div>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>

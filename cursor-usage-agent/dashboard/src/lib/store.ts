@@ -533,3 +533,47 @@ export async function employeeDetail(
     snapshots,
   };
 }
+
+/** Same payload an admin sees for this employee — scoped to the calling device token. */
+export async function myUsage(token: string) {
+  const device = await findDeviceByToken(token);
+  if (!device) throw new Error('Unknown device');
+  const detail = await employeeDetail(device.employeeId, { history: true });
+  if (!detail) throw new Error('Unknown employee');
+
+  const latest = detail.snapshots[0];
+  const usage = (latest?.usage ?? {}) as Record<string, unknown>;
+  const billing = (latest?.billingCycle ?? {}) as {
+    start?: string;
+    end?: string;
+  };
+  const lastSeen = detail.devices
+    .map((d) => d.lastSeenAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
+  return {
+    ...detail,
+    thisDeviceId: device.id,
+    summary: {
+      email: detail.employee.email,
+      name: detail.employee.name,
+      plan: latest?.plan ?? null,
+      percent: cursorUsagePercent(usage),
+      autoPercent:
+        typeof usage.autoPercentUsed === 'number' ? usage.autoPercentUsed : null,
+      apiPercent:
+        typeof usage.apiPercentUsed === 'number' ? usage.apiPercentUsed : null,
+      displayMessage:
+        typeof usage.displayMessage === 'string' ? usage.displayMessage : null,
+      billingCycleStart: typeof billing.start === 'string' ? billing.start : null,
+      billingCycleEnd: typeof billing.end === 'string' ? billing.end : null,
+      lastSeenAt: lastSeen ?? null,
+      cursorVersion:
+        detail.devices.find((d) => d.id === device.id)?.cursorVersion ??
+        detail.devices[0]?.cursorVersion ??
+        null,
+    },
+  };
+}

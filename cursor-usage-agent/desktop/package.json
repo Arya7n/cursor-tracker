@@ -1,0 +1,65 @@
+{
+  "name": "cursor-usage-desktop",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Cursor Usage desktop agent — syncs local Cursor meters to the company hub",
+  "main": "main.js",
+  "author": "Cursor Usage",
+  "scripts": {
+    "start": "electron .",
+    "predist": "npm --prefix ../agent install --omit=dev",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win nsis",
+    "dist:publish": "npm run dist && node scripts/publish-download.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^35.2.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.cursorusage.agent",
+    "productName": "Cursor Usage",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../agent",
+        "to": "agent",
+        "filter": [
+          "**/*",
+          "!.cursor-agent",
+          "!.cursor-agent/**",
+          "!**/.env",
+          "!**/.env.*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "CursorUsageSetup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Cursor Usage"
+    }
+  }
+}

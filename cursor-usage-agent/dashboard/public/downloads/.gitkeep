@@ -1,0 +1,2 @@
+# Place Windows installer artifacts here (CursorUsageSetup-latest.exe).
+# Generate with: cd cursor-usage-agent/desktop && npm run dist:publish

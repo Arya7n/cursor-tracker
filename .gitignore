@@ -10,6 +10,14 @@ node_modules/
 !.env.example
 .neon
 
+# Desktop build artifacts
+cursor-usage-agent/desktop/release/
+cursor-usage-agent/desktop/node_modules/
+cursor-usage-agent/dashboard/public/downloads/*.exe
+cursor-usage-agent/dashboard/public/downloads/*.dmg
+cursor-usage-agent/dashboard/public/downloads/*.blockmap
+cursor-usage-agent/dashboard/public/downloads/*.yml
+
 # Build
 dist/
 build/

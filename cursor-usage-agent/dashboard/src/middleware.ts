@@ -4,11 +4,14 @@ import { NextResponse } from 'next/server';
 const PUBLIC_PATHS = [
   '/api/agents/register',
   '/api/agents/heartbeat',
+  '/api/agents/me',
   '/api/usage/report',
+  '/api/install-config',
   '/install',
   '/bootstrap.ps1',
   '/bootstrap.sh',
   '/employee-kit',
+  '/downloads',
 ];
 
 export function middleware(req: NextRequest) {

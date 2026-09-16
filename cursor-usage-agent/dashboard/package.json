@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "kit": "node scripts/publish-kit.mjs",
+    "prebuild": "npm run kit",
+    "predev": "npm run kit",
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3000"
