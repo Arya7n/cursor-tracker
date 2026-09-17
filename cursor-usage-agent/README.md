@@ -1,34 +1,39 @@
 # Cursor Usage Agent
 
-Company rollout: **always-on dashboard VM** + **employee zip**.
-
-Full steps: **[docs/DEPLOY.md](docs/DEPLOY.md)**
+Company hub: **Next.js dashboard + Postgres**, plus an agent on each developer PC.
 
 ```
-Developer PCs  --install.ps1-->  https://cursor-usage.yourcompany.com
-                                      ↓
-                                 Admin dashboard
+Developer PCs  --/install-->  https://your-hub
+                                    ↓
+                              Team dashboard
 ```
 
-### Admin (once)
+Full steps: **[docs/DEPLOY.md](docs/DEPLOY.md)** · root **[README](../README.md)**
+
+### Hub (once)
+
+Neon (or Docker Postgres) + deploy `dashboard/` to Vercel, or:
 
 ```bash
-cd cursor-usage-agent
-cp .env.example .env   # set secrets
+cp .env.example .env
 docker compose up -d --build
 ```
 
-### Zip for employees (once)
+Set `ENROLLMENT_SECRET` and `DATABASE_URL`. Optional `ADMIN_USER` / `ADMIN_PASSWORD` for the login page.
 
-```powershell
-cd packaging\windows
-powershell -ExecutionPolicy Bypass -File .\pack-employee-zip.ps1
-```
+### Developers
 
-Send `dist/CursorUsageAgent-employee.zip` + dashboard URL + enrollment secret.
+Open `https://your-hub/install`.
 
-### Local dev (this PC only)
+- **Windows / Linux** — desktop app, paste hub URL, enroll
+- **macOS** — CLI installer (Node 22) until a desktop build exists
+
+They must stay signed in to Cursor Desktop. Reports run about every 20 minutes.
+
+### Local hub (this PC)
 
 ```bash
 cd dashboard && npm install && npm run dev
 ```
+
+Open http://localhost:3000

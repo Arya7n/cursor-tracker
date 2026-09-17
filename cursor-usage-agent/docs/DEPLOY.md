@@ -1,36 +1,54 @@
 # Company rollout
 
-Two artifacts:
+Two pieces:
 
-1. **Always-on VM** — Docker dashboard with a stable URL  
-2. **Employee zip** — installer each developer runs once  
+1. **Always-on hub** — Next.js dashboard with a stable HTTPS URL and Postgres  
+2. **Per-PC agent** — desktop app (Windows / Linux) or CLI (macOS / advanced)
+
+Cursor tokens never leave the developer PC.
+
+```
+Developer PC (Cursor signed in)
+  → agent scheduled sync (~20 min)
+  → HTTPS POST /api/usage/report
+  → Neon / Postgres
+  → Team opens the hub URL
+```
 
 ---
 
-## A. Put the dashboard on a VM
+## A. Database
 
-Use any always-on Linux VM (AWS, Azure, GCP, a office server).
+Create a [Neon](https://neon.tech) project and copy the **pooled** `DATABASE_URL`.
+
+On a VM you can skip Neon and use Compose Postgres instead (`DATABASE_SSL=false`).
+
+---
+
+## B. Put the dashboard online
+
+### Vercel + Neon
+
+1. Deploy the `dashboard` folder  
+2. Set `DATABASE_URL`, `ENROLLMENT_SECRET`  
+3. Optional: `ADMIN_USER`, `ADMIN_PASSWORD`, `SESSION_SECRET`  
+4. Optional: `WINDOWS_DOWNLOAD_URL`, `LINUX_DOWNLOAD_URL` (GitHub Release `.exe` / AppImage)
+
+Hub URL example: `https://your-app.vercel.app`
+
+**Sync now** on Vercel only flags enrolled PCs. It cannot run Cursor on the serverless host.
+
+### VM + Docker
 
 ```bash
 git clone <this-repo>
 cd cursor-usage-agent
 cp .env.example .env
-# edit .env — long random ENROLLMENT_SECRET + ADMIN_USER/PASSWORD
+# ENROLLMENT_SECRET, DATABASE_URL (or Compose defaults), optional admin login
 docker compose up -d --build
 ```
 
-That starts **Postgres** and the dashboard. Data lives in the `pg-data` volume.
-
-For **Vercel**: create a free [Neon](https://neon.tech) Postgres database, set `DATABASE_URL` (and `ENROLLMENT_SECRET` / admin env) in the Vercel project, deploy the `dashboard` folder. Do not use the JSON file store on Vercel.
-
-Dashboard listens on port **3000**.
-
-Give it a **stable URL**:
-
-- DNS: `cursor-usage.yourcompany.com` → VM IP  
-- Put HTTPS in front (Cloudflare, Caddy, nginx, load balancer)
-
-Example nginx:
+Dashboard listens on port **3000**. Put HTTPS in front:
 
 ```nginx
 server {
@@ -42,78 +60,48 @@ server {
 }
 ```
 
-Open in a browser:
-
-`https://cursor-usage.yourcompany.com`  
-(admin basic auth from `ADMIN_USER` / `ADMIN_PASSWORD`)
-
-Agents post to the same host. They do **not** use admin basic auth; they use the enrollment secret / device token.
+Agents post to the same host. They do **not** use the admin login; they use the enrollment secret / device token.
 
 Firewall: allow 80/443 (and 3000 only if you skip a reverse proxy).
 
 ---
 
-## B. Build the zip you send to developers
+## C. Desktop installers (optional)
 
-On a Windows machine with this repo:
-
-```powershell
-cd cursor-usage-agent\packaging\windows
-powershell -ExecutionPolicy Bypass -File .\pack-employee-zip.ps1
-```
-
-Creates:
-
-`cursor-usage-agent/dist/CursorUsageAgent-employee.zip`
-
-Employees should **not** need a zip. Use the install page on the dashboard:
-
-`http://SERVER:3000/install`
-
-They run the PowerShell command shown there. Files download over HTTP from the hub.
-
-Other options if email blocks zips:
-
-- Copy the **folder** `dist/CursorUsageAgent-employee` (not the .zip) to a file share or USB
-- Internal git clone of `cursor-usage-agent/agent` then `npm run enroll` / `npm run sync`
-  
-
----
-
-## C. What each developer does
-
-Open `https://cursor-usage.yourcompany.com/install` and run the command for their OS.
-
-Need **Node.js 22 LTS** and to stay signed in to **Cursor Desktop**.
-
-### Windows
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1 -Server "https://cursor-usage.yourcompany.com" -Secret "ENROLLMENT_SECRET"
-```
-
-Installs to `%LOCALAPPDATA%\CursorUsageAgent` and a scheduled task every **20 minutes**. Uninstall: `uninstall.ps1`.
-
-### Mac
+From a machine with the repo:
 
 ```bash
-bash install.sh "https://cursor-usage.yourcompany.com" "ENROLLMENT_SECRET"
+cd cursor-usage-agent/desktop
+npm install
+npm run dist:publish
 ```
 
-Installs to `~/Library/Application Support/CursorUsageAgent` and a Launch Agent every **20 minutes**. Uninstall: `bash uninstall.sh`.
+That copies Windows setup into `dashboard/public/downloads/` so `/install` can offer **Download for Windows**. For Vercel, publish the files as GitHub Release assets and set `WINDOWS_DOWNLOAD_URL` / `LINUX_DOWNLOAD_URL`.
 
-Their row appears on the admin dashboard after the first successful sync.
+macOS desktop build is not ready; use the CLI installer.
 
 ---
 
-## Data path
+## D. What each developer does
 
-```
-Developer PC (Cursor signed in)
-  → agent scheduled sync
-  → HTTPS POST /api/usage/report  (usage $ / % / email only)
-  → VM disk volume (usage-data)
-  → Admin opens https://cursor-usage.yourcompany.com
+Open `https://your-hub/install`.
+
+Need **Cursor Desktop signed in**.
+
+**Windows / Linux** — download the app, paste the hub URL, load the secret, Enroll & sync.
+
+**macOS / CLI** — Node.js 22 LTS, then the command on the install page, or:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Server "https://your-hub" -Secret "ENROLLMENT_SECRET"
 ```
 
-Cursor tokens never leave the developer PC.
+```bash
+bash install.sh "https://your-hub" "ENROLLMENT_SECRET"
+```
+
+CLI install: Windows Task Scheduler or macOS Launch Agent every **20 minutes**. Uninstall: `uninstall.ps1` / `bash uninstall.sh`.
+
+The row appears after the first successful sync.
+
+If they were enrolled to `localhost`, re-install with the public hub URL. Keep the **same** `ENROLLMENT_SECRET`.
