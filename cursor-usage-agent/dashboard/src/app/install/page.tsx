@@ -264,6 +264,27 @@ export default function EmployeeInstallPage() {
                 </>
               }
               hubUrl={origin}
+              extra={
+                <div className="space-y-2 rounded-xl bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">
+                  <p>
+                    No Apple Developer license. macOS will warn that the app is
+                    unsigned. After dragging it to Applications:
+                  </p>
+                  <ol className="list-decimal space-y-1 pl-4">
+                    <li>
+                      Control-click <strong>Cursor Usage</strong> →{' '}
+                      <strong>Open</strong> → <strong>Open</strong>
+                    </li>
+                    <li>
+                      If it says the app is damaged, run this in Terminal, then
+                      open it again:
+                    </li>
+                  </ol>
+                  <p className="break-all font-mono text-[11px] text-zinc-800">
+                    xattr -cr &quot;/Applications/Cursor Usage.app&quot;
+                  </p>
+                </div>
+              }
             />
           ) : null}
         </div>

@@ -64,22 +64,13 @@ function envWithNodeBins() {
   };
 }
 
-function resolveNpm() {
-  const name = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const env = envWithNodeBins();
-  const dirs = [
-    ...extraBinDirs(),
-    ...(env.PATH || '').split(path.delimiter).filter(Boolean),
+function agentBundlePath() {
+  const candidates = [
+    path.join(process.resourcesPath || '', 'agent', 'desktop-agent.cjs'),
+    path.join(__dirname, 'resources', 'desktop-agent.cjs'),
+    path.join(agentRoot(), 'dist', 'desktop-agent.cjs'),
   ];
-  for (const dir of dirs) {
-    const candidate = path.join(dir, name);
-    try {
-      if (fs.existsSync(candidate)) return candidate;
-    } catch {
-      /* ignore */
-    }
-  }
-  return null;
+  return candidates.find((p) => p && fs.existsSync(p)) || null;
 }
 
 function loadConfig() {
@@ -122,23 +113,28 @@ function runAgent(command) {
       reject(new Error('Agent is already running a job'));
       return;
     }
-    const root = agentRoot();
-    const entry = path.join(root, 'src', 'main.ts');
-    if (!fs.existsSync(entry)) {
-      reject(new Error(`Agent not found at ${entry}`));
+    const bundle = agentBundlePath();
+    const entryTs = path.join(agentRoot(), 'src', 'main.ts');
+    let args;
+    let cwd;
+    if (bundle) {
+      args = ['--experimental-sqlite', bundle, command];
+      cwd = path.dirname(bundle);
+    } else if (fs.existsSync(entryTs)) {
+      args = ['--experimental-sqlite', '--import', 'tsx', entryTs, command];
+      cwd = agentRoot();
+    } else {
+      reject(
+        new Error(
+          'Agent bundle not found. Rebuild the desktop app with npm run dist:mac / dist:win.',
+        ),
+      );
       return;
     }
 
     agentBusy = true;
-    const args = [
-      '--experimental-sqlite',
-      '--import',
-      'tsx',
-      entry,
-      command,
-    ];
     const child = spawn(process.execPath, args, {
-      cwd: root,
+      cwd,
       env: {
         ...envWithNodeBins(),
         ELECTRON_RUN_AS_NODE: '1',
@@ -171,34 +167,12 @@ function runAgent(command) {
 }
 
 async function ensureAgentDeps() {
-  const root = agentRoot();
-  const marker = path.join(root, 'node_modules', 'tsx', 'package.json');
-  if (fs.existsSync(marker)) return;
-
-  const npmCmd = resolveNpm();
-  if (!npmCmd) {
+  if (agentBundlePath()) return;
+  if (app.isPackaged) {
     throw new Error(
-      'Agent dependencies are missing and npm was not found. Rebuild the Mac app with `npm run dist:mac` (that bundles node_modules), or install Node.js 22 so npm is available.',
+      'This Mac/Windows build is missing the bundled agent. Rebuild with npm run dist:mac (or dist:win) and install that new DMG/exe. Enroll does not use npm.',
     );
   }
-
-  await new Promise((resolve, reject) => {
-    const child = spawn(npmCmd, ['install', '--omit=dev'], {
-      cwd: root,
-      env: envWithNodeBins(),
-      windowsHide: true,
-      shell: process.platform === 'win32',
-    });
-    let stderr = '';
-    child.stderr.on('data', (d) => {
-      stderr += d.toString();
-    });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(stderr || `npm install failed (${code})`));
-    });
-  });
 }
 
 function sendStatus(extra = {}) {

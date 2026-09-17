@@ -1,24 +1,24 @@
 {
   "name": "cursor-usage-desktop",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Cursor Usage desktop agent — syncs local Cursor meters to the company hub",
   "main": "main.js",
   "author": "Cursor Usage",
   "scripts": {
-    "start": "electron .",
-    "predist": "npm --prefix ../agent install --omit=dev",
+    "start": "node scripts/bundle-agent.mjs && electron .",
+    "predist": "node scripts/bundle-agent.mjs",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "dist:win": "electron-builder --win nsis",
-    "dist:linux": "electron-builder --linux AppImage",
-    "dist:mac": "npm --prefix ../agent install --omit=dev && electron-builder --mac dmg zip",
+    "dist:win": "node scripts/bundle-agent.mjs && electron-builder --win nsis",
+    "dist:linux": "node scripts/bundle-agent.mjs && electron-builder --linux AppImage",
+    "dist:mac": "node scripts/bundle-agent.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip",
     "dist:publish": "npm run dist && node scripts/publish-download.mjs"
   },
-  "dependencies": {},
   "devDependencies": {
     "electron": "^35.2.1",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.12"
   },
   "build": {
     "appId": "com.cursorusage.agent",
@@ -34,16 +34,8 @@
     ],
     "extraResources": [
       {
-        "from": "../agent",
-        "to": "agent",
-        "filter": [
-          "**/*",
-          "node_modules/**",
-          "!.cursor-agent",
-          "!.cursor-agent/**",
-          "!**/.env",
-          "!**/.env.*"
-        ]
+        "from": "resources/desktop-agent.cjs",
+        "to": "agent/desktop-agent.cjs"
       }
     ],
     "win": {
@@ -75,7 +67,11 @@
         "zip"
       ],
       "category": "public.app-category.developer-tools",
-      "artifactName": "CursorUsage-${version}-mac.${ext}"
+      "artifactName": "CursorUsage-${version}-mac.${ext}",
+      "identity": null,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false,
+      "notarize": false
     },
     "nsis": {
       "oneClick": true,
