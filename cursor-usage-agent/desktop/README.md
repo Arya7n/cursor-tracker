@@ -19,4 +19,16 @@ npm run dist:publish
 
 Copies `CursorUsageSetup-*.exe` and `CursorUsageSetup-latest.exe` into `dashboard/public/downloads/` so `/install` can offer **Download for Windows**.
 
+## Build macOS
+
+```bash
+cd cursor-usage-agent/agent && npm install --omit=dev
+cd ../desktop && npm install
+npm run dist:mac
+```
+
+`predist` installs agent `node_modules` so the `.app` does not need `npm` at enroll time. Finder-launched Mac apps do not see Homebrew/nvm on `PATH`.
+
+Output: `desktop/release/CursorUsage-*-mac.dmg`
+
 Users still need Cursor Desktop signed in. The app bundles the agent runtime (via Electron); teammates do not need to run terminal enroll commands.

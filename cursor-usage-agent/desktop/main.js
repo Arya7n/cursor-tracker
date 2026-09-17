@@ -28,6 +28,60 @@ function agentRoot() {
   return path.join(__dirname, '..', 'agent');
 }
 
+function extraBinDirs() {
+  const home = os.homedir();
+  const dirs = [
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    path.join(home, '.volta', 'bin'),
+    path.join(home, '.asdf', 'shims'),
+    path.join(home, '.local', 'share', 'fnm', 'aliases', 'default', 'bin'),
+  ];
+  if (process.platform === 'win32') {
+    dirs.push(path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs'));
+    dirs.push(path.join(process.env.LOCALAPPDATA || '', 'Programs', 'nodejs'));
+  }
+  const nvm = path.join(home, '.nvm', 'versions', 'node');
+  try {
+    if (fs.existsSync(nvm)) {
+      for (const ver of fs.readdirSync(nvm)) {
+        dirs.push(path.join(nvm, ver, 'bin'));
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return dirs.filter(Boolean);
+}
+
+function envWithNodeBins() {
+  const sep = path.delimiter;
+  const extra = extraBinDirs().join(sep);
+  return {
+    ...process.env,
+    PATH: extra ? `${extra}${sep}${process.env.PATH || ''}` : process.env.PATH,
+  };
+}
+
+function resolveNpm() {
+  const name = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const env = envWithNodeBins();
+  const dirs = [
+    ...extraBinDirs(),
+    ...(env.PATH || '').split(path.delimiter).filter(Boolean),
+  ];
+  for (const dir of dirs) {
+    const candidate = path.join(dir, name);
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
 function loadConfig() {
   try {
     if (!fs.existsSync(CONFIG_PATH)) return null;
@@ -86,7 +140,7 @@ function runAgent(command) {
     const child = spawn(process.execPath, args, {
       cwd: root,
       env: {
-        ...process.env,
+        ...envWithNodeBins(),
         ELECTRON_RUN_AS_NODE: '1',
         NODE_ENV: process.env.NODE_ENV || 'production',
       },
@@ -121,11 +175,17 @@ async function ensureAgentDeps() {
   const marker = path.join(root, 'node_modules', 'tsx', 'package.json');
   if (fs.existsSync(marker)) return;
 
+  const npmCmd = resolveNpm();
+  if (!npmCmd) {
+    throw new Error(
+      'Agent dependencies are missing and npm was not found. Rebuild the Mac app with `npm run dist:mac` (that bundles node_modules), or install Node.js 22 so npm is available.',
+    );
+  }
+
   await new Promise((resolve, reject) => {
-    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
     const child = spawn(npmCmd, ['install', '--omit=dev'], {
       cwd: root,
-      env: process.env,
+      env: envWithNodeBins(),
       windowsHide: true,
       shell: process.platform === 'win32',
     });
