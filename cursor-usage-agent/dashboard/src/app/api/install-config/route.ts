@@ -25,9 +25,15 @@ export async function GET() {
     process.env.NEXT_PUBLIC_LINUX_DOWNLOAD_URL ||
     '/downloads/CursorUsage-latest.AppImage';
 
+  const macDownloadUrl =
+    process.env.MAC_DOWNLOAD_URL ||
+    process.env.NEXT_PUBLIC_MAC_DOWNLOAD_URL ||
+    '/downloads/CursorUsage-latest-mac.dmg';
+
   return NextResponse.json({
     enrollmentSecret,
     windowsDownloadUrl,
     linuxDownloadUrl,
+    macDownloadUrl,
   });
 }

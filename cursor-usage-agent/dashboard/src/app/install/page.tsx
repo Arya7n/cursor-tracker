@@ -38,10 +38,12 @@ export default function EmployeeInstallPage() {
   const [linuxUrl, setLinuxUrl] = useState(
     '/downloads/CursorUsage-latest.AppImage',
   );
+  const [macUrl, setMacUrl] = useState('/downloads/CursorUsage-latest-mac.dmg');
   const [configError, setConfigError] = useState<string | null>(null);
   const [os, setOs] = useState<OsId>('windows');
   const [hasWindows, setHasWindows] = useState(false);
   const [hasLinux, setHasLinux] = useState(false);
+  const [hasMac, setHasMac] = useState(false);
   const [showCli, setShowCli] = useState(false);
 
   useEffect(() => {
@@ -57,6 +59,7 @@ export default function EmployeeInstallPage() {
           enrollmentSecret?: string;
           windowsDownloadUrl?: string;
           linuxDownloadUrl?: string;
+          macDownloadUrl?: string;
           error?: string;
         };
         if (!res.ok) {
@@ -66,6 +69,7 @@ export default function EmployeeInstallPage() {
           setSecret(json.enrollmentSecret || null);
           if (json.windowsDownloadUrl) setWindowsUrl(json.windowsDownloadUrl);
           if (json.linuxDownloadUrl) setLinuxUrl(json.linuxDownloadUrl);
+          if (json.macDownloadUrl) setMacUrl(json.macDownloadUrl);
           setConfigError(null);
         }
       } catch (e) {
@@ -85,19 +89,21 @@ export default function EmployeeInstallPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [winOk, linuxOk] = await Promise.all([
+      const [winOk, linuxOk, macOk] = await Promise.all([
         probeDownload(windowsUrl),
         probeDownload(linuxUrl),
+        probeDownload(macUrl),
       ]);
       if (!cancelled) {
         setHasWindows(winOk);
         setHasLinux(linuxOk);
+        setHasMac(macOk);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [windowsUrl, linuxUrl]);
+  }, [windowsUrl, linuxUrl, macUrl]);
 
   const ready = Boolean(origin && secret);
 
@@ -130,8 +136,8 @@ export default function EmployeeInstallPage() {
           Install Cursor Usage
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">
-          Download the desktop app for Windows or Linux. It syncs Cursor usage
-          in the background and appears on the{' '}
+          Download the desktop app for Windows, Linux, or macOS. It syncs Cursor
+          usage in the background and appears on the{' '}
           <Link
             href="/"
             className="font-semibold text-teal-800 underline-offset-2 hover:underline"
@@ -146,7 +152,7 @@ export default function EmployeeInstallPage() {
         <Step
           n="01"
           title="Download"
-          body="Get the Windows or Linux app from this page."
+          body="Get the Windows, Linux, or macOS app from this page."
           delay="anim-rise-delay-1"
         />
         <Step
@@ -241,10 +247,24 @@ export default function EmployeeInstallPage() {
           ) : null}
 
           {os === 'mac' ? (
-            <p className="text-sm text-zinc-600">
-              macOS desktop build is not ready yet. Use the CLI installer below
-              for now.
-            </p>
+            <DownloadPanel
+              title="Desktop app · macOS"
+              hint="Disk image for Mac. Open the DMG, drag Cursor Usage to Applications, then enroll with this hub URL."
+              href={macUrl}
+              label="Download for macOS"
+              available={hasMac}
+              missingHint={
+                <>
+                  Set <code className="text-xs">MAC_DOWNLOAD_URL</code> to your
+                  GitHub Release DMG, or place the file at{' '}
+                  <code className="text-xs">
+                    public/downloads/CursorUsage-latest-mac.dmg
+                  </code>
+                  .
+                </>
+              }
+              hubUrl={origin}
+            />
           ) : null}
         </div>
       </section>
