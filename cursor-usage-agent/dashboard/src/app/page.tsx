@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UsageBar } from '@/components/UsageMeter';
 import {
@@ -248,50 +248,51 @@ export default function AdminDashboard() {
         />
       </section>
 
-      <section className="panel anim-rise anim-rise-delay-4 overflow-hidden rounded-2xl">
-        <div className="flex flex-col gap-3 border-b border-teal-900/8 px-3 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
-          <h2 className="text-sm font-semibold tracking-tight text-zinc-900">
+      <section className="panel anim-rise anim-rise-delay-4 rounded-2xl">
+        <div className="flex flex-col gap-3 border-b border-teal-900/8 px-3 py-3 sm:px-5 md:flex-row md:items-end md:justify-between">
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900 md:mb-2">
             Developers
           </h2>
-          <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap md:items-center">
-            <label className="sr-only" htmlFor="team-search">
-              Search developers
+          <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-nowrap md:items-end md:gap-2.5">
+            <label className="col-span-2 min-w-0 md:w-56" htmlFor="team-search">
+              <span className="mb-1 block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
+                Search
+              </span>
+              <input
+                id="team-search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Name, email, plan"
+                className="w-full min-w-0 rounded-xl border border-teal-900/10 bg-white/90 px-3 py-2 text-sm font-medium text-zinc-800 outline-none ring-teal-700/25 placeholder:text-zinc-400 hover:border-teal-700/25 focus:ring-2"
+              />
             </label>
-            <input
-              id="team-search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, email, plan"
-              className="col-span-2 w-full min-w-0 rounded-xl border border-teal-900/10 bg-white/90 px-3 py-2 text-sm outline-none ring-teal-700/25 placeholder:text-zinc-400 focus:ring-2 md:w-56"
-            />
-            <select
+            <ToolbarSelect
+              label="Sort"
               value={sort}
-              onChange={(e) => setSort(e.target.value as SortId)}
-              className="min-w-0 rounded-xl border border-teal-900/10 bg-white/90 px-2.5 py-2 text-sm text-zinc-700"
-            >
-              <option value="name">Sort: name</option>
-              <option value="usage">Sort: usage</option>
-              <option value="sync">Sort: last sync</option>
-            </select>
-            <label className="flex min-w-0 items-center gap-1.5 text-sm text-zinc-600">
-              <span className="shrink-0">Rows</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setPageSize(v === 'all' ? 'all' : (Number(v) as PageSize));
-                }}
-                className="min-w-0 flex-1 rounded-xl border border-teal-900/10 bg-white/90 px-2.5 py-2 text-sm text-zinc-700"
-              >
-                {PAGE_SIZES.map((n) => (
-                  <option key={String(n)} value={n}>
-                    {n === 'all' ? 'All' : n}
-                  </option>
-                ))}
-              </select>
-            </label>
+              onChange={(v) => setSort(v as SortId)}
+              className="md:w-[9.5rem]"
+              options={[
+                { value: 'name', label: 'Name' },
+                { value: 'usage', label: 'Usage' },
+                { value: 'sync', label: 'Last sync' },
+              ]}
+            />
+            <ToolbarSelect
+              label="Rows"
+              value={String(pageSize)}
+              onChange={(v) => {
+                setPageSize(v === 'all' ? 'all' : (Number(v) as PageSize));
+              }}
+              className="md:w-[6.75rem]"
+              options={PAGE_SIZES.map((n) => ({
+                value: String(n),
+                label: n === 'all' ? 'All' : String(n),
+              }))}
+            />
           </div>
         </div>
+
+        <div className="overflow-hidden rounded-b-2xl">
 
         {loading && !data ? (
           <p className="px-4 py-10 text-sm text-zinc-500 sm:px-5">Loading team…</p>
@@ -370,8 +371,135 @@ export default function AdminDashboard() {
             </div>
           </>
         )}
+        </div>
       </section>
     </main>
+  );
+}
+
+function ToolbarSelect({
+  label,
+  value,
+  onChange,
+  options,
+  className = '',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  className?: string;
+}) {
+  const id = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className={`relative min-w-0 ${className}`}>
+      <span
+        id={`${id}-label`}
+        className="mb-1 block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400"
+      >
+        {label}
+      </span>
+      <button
+        type="button"
+        id={id}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-labelledby={`${id}-label`}
+        onClick={() => setOpen((v) => !v)}
+        className={`flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border bg-white/90 py-2 pl-3 pr-2.5 text-left text-sm font-medium outline-none ring-teal-700/25 hover:border-teal-700/30 focus:ring-2 ${
+          open
+            ? 'border-teal-700/40 text-zinc-900 shadow-[0_0_0_3px_rgba(15,118,110,0.12)]'
+            : 'border-teal-900/10 text-zinc-800'
+        }`}
+      >
+        <span className="truncate">{selected?.label}</span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden
+          className={`shrink-0 text-teal-800/70 transition-transform duration-200 ${
+            open ? 'rotate-180' : ''
+          }`}
+        >
+          <path
+            d="M2.5 4.25 6 7.75l3.5-3.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open ? (
+        <ul
+          role="listbox"
+          aria-labelledby={`${id}-label`}
+          className="absolute right-0 z-30 mt-1.5 min-w-full overflow-hidden rounded-xl border border-teal-900/10 bg-white/95 py-1 shadow-[0_16px_40px_rgba(12,26,23,0.12)] backdrop-blur-md"
+        >
+          {options.map((opt) => {
+            const active = opt.value === value;
+            return (
+              <li key={opt.value} role="option" aria-selected={active}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                    active
+                      ? 'bg-teal-50 font-semibold text-teal-900'
+                      : 'font-medium text-zinc-700 hover:bg-teal-50/70 hover:text-zinc-900'
+                  }`}
+                >
+                  {opt.label}
+                  {active ? (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      aria-hidden
+                      className="shrink-0 text-teal-800"
+                    >
+                      <path
+                        d="M2.5 7.2 5.6 10.2 11.5 3.8"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
