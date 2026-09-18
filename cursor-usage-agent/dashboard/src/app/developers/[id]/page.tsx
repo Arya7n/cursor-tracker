@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkline, UsageBar, UsageRing } from '@/components/UsageMeter';
+import { UsageBar, UsageRing } from '@/components/UsageMeter';
 import { cursorUsagePercent } from '@/lib/percent';
 import {
   asNumber,
@@ -11,7 +11,6 @@ import {
   asString,
   cycleLabel,
   daysLeft,
-  formatPct,
   initials,
   relativeTime,
 } from '@/lib/format';
@@ -71,14 +70,6 @@ export default function DeveloperDetailPage() {
   const left = daysLeft(cycle?.end);
   const autoPercent = asNumber(usage.autoPercentUsed);
   const apiPercent = asNumber(usage.apiPercentUsed);
-  const history = useMemo(
-    () =>
-      [...snapshots]
-        .reverse()
-        .map((s) => cursorUsagePercent(asRecord(s.usage)))
-        .filter((n): n is number => n != null),
-    [snapshots],
-  );
 
   async function removeFromHub() {
     if (!params.id) return;
@@ -185,36 +176,6 @@ export default function DeveloperDetailPage() {
               </div>
             </section>
           )}
-
-          <section className="mt-4 rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-zinc-900">Recent trend</h2>
-            <p className="mt-1 text-xs text-zinc-500">
-              Included usage from the last {snapshots.length} sync
-              {snapshots.length === 1 ? '' : 's'}
-            </p>
-            <div className="mt-3">
-              <Sparkline points={history} />
-            </div>
-            {snapshots.length ? (
-              <ol className="mt-4 max-h-64 space-y-2 overflow-auto text-sm">
-                {snapshots.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex flex-col gap-1 rounded-lg bg-zinc-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                  >
-                    <span className="break-words text-zinc-500">
-                      {new Date(s.timestamp).toLocaleString()}
-                    </span>
-                    <span className="font-mono text-xs font-semibold tabular-nums text-zinc-800">
-                      {formatPct(cursorUsagePercent(asRecord(s.usage)))}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="mt-4 text-sm text-zinc-500">No sync history yet.</p>
-            )}
-          </section>
 
           <section className="mt-4 rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-900">Devices</h2>

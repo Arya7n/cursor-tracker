@@ -22,7 +22,7 @@ Developer PC (Cursor signed in)
 1. **Database** — Neon (or Docker Postgres) with `DATABASE_URL`.
 2. **Hub** — this Next.js app, hosted on Vercel or a VM. It is the API and the UI.
 3. **Agents** — each developer installs from `/install`. They stay signed in to Cursor Desktop. The agent reports about every 20 minutes.
-4. **Team page** — open the hub URL, sign in if admin login is enabled, and watch usage. Click a person for Auto / included, API usage, trend history, and devices.
+4. **Team page** — open the hub URL, sign in if admin login is enabled, and watch usage. Click a person for Auto / included, API usage, and devices.
 
 The agent does **not** run on Vercel. Only the hub does.
 
@@ -36,7 +36,6 @@ The agent does **not** run on Vercel. Only the hub does.
 | Auto / API | Same meters the IDE shows |
 | Last sync | Last successful agent report |
 | Devices | Enrolled machines for that person |
-| Trend | Recent sync history |
 
 No USD totals, chats, source, or Cursor credentials. Nobody is ranked High / Watch / On track.
 

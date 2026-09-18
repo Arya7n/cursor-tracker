@@ -13,7 +13,7 @@ npm run dev
 Open http://localhost:3000
 
 - **/** — team usage (search, pagination, Sync now, Remove)
-- **/developers/[id]** — plan, cycle, %, Auto / API, trend, devices
+- **/developers/[id]** — plan, cycle, %, Auto / API, devices
 - **/install** — desktop downloads + CLI installer
 - **/login** — only if `ADMIN_USER` and `ADMIN_PASSWORD` are set
 
