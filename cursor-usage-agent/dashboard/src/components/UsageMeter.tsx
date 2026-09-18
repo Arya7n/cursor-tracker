@@ -79,3 +79,31 @@ export function UsageRing({
     </div>
   );
 }
+
+export function OnDemandStatus({
+  on,
+  percent,
+  className = '',
+}: {
+  on: boolean;
+  percent?: number | null;
+  className?: string;
+}) {
+  if (!on) {
+    return (
+      <span className={`text-sm font-medium text-zinc-400 ${className}`}>
+        Off
+      </span>
+    );
+  }
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <p className="text-sm font-semibold text-teal-900">On</p>
+      {percent != null ? (
+        <p className="mt-0.5 font-mono text-xs tabular-nums text-zinc-500">
+          {formatPct(percent)} of cap
+        </p>
+      ) : null}
+    </div>
+  );
+}
