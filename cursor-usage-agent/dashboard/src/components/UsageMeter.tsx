@@ -36,11 +36,15 @@ export function UsageRing({
   caption?: string;
 }) {
   const value = clampPct(percent);
+  const left =
+    percent != null && Number.isFinite(percent)
+      ? clampPct(100 - percent)
+      : null;
   const r = 52;
   const c = 2 * Math.PI * r;
   const dash = (value / 100) * c;
   return (
-    <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-5 sm:text-left">
+    <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
       <svg
         viewBox="0 0 128 128"
         className="h-24 w-24 shrink-0 -rotate-90 sm:h-28 sm:w-28"
@@ -68,11 +72,26 @@ export function UsageRing({
           strokeDashoffset={0}
         />
       </svg>
-      <div>
-        <p className="font-mono text-3xl font-semibold tracking-tight tabular-nums text-zinc-900 sm:text-4xl">
-          {formatPct(percent)}
-        </p>
-        <p className="mt-1 text-sm text-zinc-500">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-end justify-center gap-x-6 gap-y-3 sm:justify-start">
+          <div>
+            <p className="font-mono text-3xl font-semibold tracking-tight tabular-nums text-zinc-900 sm:text-4xl">
+              {formatPct(percent)}
+            </p>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+              Used
+            </p>
+          </div>
+          <div>
+            <p className="font-mono text-3xl font-semibold tracking-tight tabular-nums text-teal-900 sm:text-4xl">
+              {formatPct(left)}
+            </p>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+              Left
+            </p>
+          </div>
+        </div>
+        <p className="mt-2 text-sm text-zinc-500">
           {caption ?? 'Included usage this cycle'}
         </p>
       </div>
