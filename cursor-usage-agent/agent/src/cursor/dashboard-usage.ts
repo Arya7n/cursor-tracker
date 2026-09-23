@@ -21,9 +21,12 @@ export interface PlanUsageSnapshot {
   autoDisplayMessage: string | null;
   apiDisplayMessage: string | null;
   onDemand: {
+    /** Matches Settings → Plan & Usage On-Demand toggle. Null if unknown. */
+    enabled: boolean | null;
     individualLimitUsd: number | null;
     individualUsedUsd: number | null;
     individualRemainingUsd: number | null;
+    percentUsed: number | null;
     limitType: string | null;
   };
   rawSafe: Record<string, unknown>;
@@ -32,6 +35,22 @@ export interface PlanUsageSnapshot {
 function centsToUsd(cents: unknown): number | null {
   if (typeof cents !== 'number' || Number.isNaN(cents)) return null;
   return Math.round(cents) / 100;
+}
+
+function ratioPercent(used: number | null, limit: number | null): number | null {
+  if (used == null || limit == null || limit <= 0) return null;
+  return Math.round((used / limit) * 1000) / 10;
+}
+
+function asBool(v: unknown): boolean | null {
+  return typeof v === 'boolean' ? v : null;
+}
+
+/** Cursor encodes Unlimited as 2^31-1 (or another huge sentinel), not a real cap. */
+function realUsdCap(usd: number | null): number | null {
+  if (usd == null || !Number.isFinite(usd) || usd <= 0) return null;
+  if (usd >= 1_000_000) return null;
+  return usd;
 }
 
 function msToIso(ms: unknown): string | null {
@@ -84,9 +103,10 @@ export async function fetchPlanUsageSnapshot(): Promise<{
   }
 
   try {
-    const [usageRes, planRes] = await Promise.all([
+    const [usageRes, planRes, hardRes] = await Promise.all([
       postDashboard('GetCurrentPeriodUsage', token),
       postDashboard('GetPlanInfo', token),
+      postDashboard('GetHardLimit', token),
     ]);
 
     if (!usageRes.ok || !usageRes.body || typeof usageRes.body !== 'object') {
@@ -100,6 +120,9 @@ export async function fetchPlanUsageSnapshot(): Promise<{
     const usage = usageRes.body as Record<string, unknown>;
     const planUsage = (usage.planUsage || {}) as Record<string, unknown>;
     const spendLimit = (usage.spendLimitUsage || {}) as Record<string, unknown>;
+    const hardOk =
+      hardRes.ok && hardRes.body && typeof hardRes.body === 'object';
+    const hardLimit = hardOk ? (hardRes.body as Record<string, unknown>) : {};
     const planInfo =
       planRes.ok && planRes.body && typeof planRes.body === 'object'
         ? ((planRes.body as Record<string, unknown>).planInfo as
@@ -108,6 +131,8 @@ export async function fetchPlanUsageSnapshot(): Promise<{
         : undefined;
 
     const includedUsed = centsToUsd(planUsage.includedSpend);
+    const bonusUsedUsd = centsToUsd(planUsage.bonusSpend);
+    const usedUsd = centsToUsd(planUsage.totalSpend);
     const limit =
       centsToUsd(planUsage.limit) ??
       centsToUsd(planInfo?.includedAmountCents) ??
@@ -117,6 +142,28 @@ export async function fetchPlanUsageSnapshot(): Promise<{
       (includedUsed != null && limit != null
         ? Math.max(0, Math.round((limit - includedUsed) * 100) / 100)
         : null);
+
+    const onDemandUsedUsd = centsToUsd(spendLimit.individualUsed);
+    const hardLimitUsd = realUsdCap(
+      typeof hardLimit.hardLimit === 'number' ? hardLimit.hardLimit : null,
+    );
+    const onDemandLimitUsd = realUsdCap(
+      centsToUsd(spendLimit.individualLimit) ?? hardLimitUsd,
+    );
+    const onDemandRemainingUsd =
+      centsToUsd(spendLimit.individualRemaining) ??
+      (onDemandUsedUsd != null && onDemandLimitUsd != null
+        ? Math.max(0, Math.round((onDemandLimitUsd - onDemandUsedUsd) * 100) / 100)
+        : null);
+    // Settings On-Demand toggle is GetHardLimit.noUsageBasedAllowed
+    // (true = Disabled). A missing monthly cap means Unlimited, not Off.
+    const blocked = hardOk ? asBool(hardLimit.noUsageBasedAllowed) : null;
+    const onDemandEnabled: boolean | null = hardOk
+      ? blocked !== true
+      : asBool(spendLimit.enabled) ??
+        asBool(spendLimit.isEnabled) ??
+        asBool(spendLimit.onDemandEnabled) ??
+        (onDemandLimitUsd != null && onDemandLimitUsd > 0 ? true : null);
 
     const snapshot: PlanUsageSnapshot = {
       billingCycleStart: msToIso(usage.billingCycleStart),
@@ -129,9 +176,9 @@ export async function fetchPlanUsageSnapshot(): Promise<{
           : typeof planUsage.limit === 'number'
             ? planUsage.limit
             : null,
-      usedUsd: centsToUsd(planUsage.totalSpend),
+      usedUsd: usedUsd,
       includedUsedUsd: includedUsed,
-      bonusUsedUsd: centsToUsd(planUsage.bonusSpend),
+      bonusUsedUsd: bonusUsedUsd,
       limitUsd: limit,
       remainingUsd: remaining,
       totalPercentUsed:
@@ -157,9 +204,11 @@ export async function fetchPlanUsageSnapshot(): Promise<{
           ? usage.namedModelSelectedDisplayMessage
           : null,
       onDemand: {
-        individualLimitUsd: centsToUsd(spendLimit.individualLimit),
-        individualUsedUsd: centsToUsd(spendLimit.individualUsed),
-        individualRemainingUsd: centsToUsd(spendLimit.individualRemaining),
+        enabled: onDemandEnabled,
+        individualLimitUsd: onDemandLimitUsd,
+        individualUsedUsd: onDemandUsedUsd,
+        individualRemainingUsd: onDemandRemainingUsd,
+        percentUsed: ratioPercent(onDemandUsedUsd, onDemandLimitUsd),
         limitType:
           typeof spendLimit.limitType === 'string' ? spendLimit.limitType : null,
       },
@@ -178,9 +227,14 @@ export async function fetchPlanUsageSnapshot(): Promise<{
         },
         spendLimitUsage: {
           limitType: spendLimit.limitType,
+          enabled: spendLimit.enabled ?? spendLimit.isEnabled ?? spendLimit.onDemandEnabled ?? null,
           individualLimit: spendLimit.individualLimit,
           individualUsed: spendLimit.individualUsed,
           individualRemaining: spendLimit.individualRemaining,
+        },
+        hardLimit: {
+          hardLimit: hardLimit.hardLimit ?? null,
+          noUsageBasedAllowed: hardLimit.noUsageBasedAllowed ?? null,
         },
         displayMessage: usage.displayMessage,
         planInfo: planInfo
@@ -196,7 +250,8 @@ export async function fetchPlanUsageSnapshot(): Promise<{
 
     return {
       available: true,
-      reason: 'Fetched via DashboardService GetCurrentPeriodUsage + GetPlanInfo',
+      reason:
+        'Fetched via DashboardService GetCurrentPeriodUsage + GetPlanInfo + GetHardLimit',
       snapshot,
     };
   } catch (e) {

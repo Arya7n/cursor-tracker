@@ -83,6 +83,13 @@ export function formatHumanScan(report: AgentReport): string {
   const pct = u.usagePercentage.value as Record<string, unknown> | null;
   const cycle = u.billingCycle.value as Record<string, unknown> | null;
   const spend = u.spending.value as Record<string, unknown> | null;
+  const onDemand = (spend?.onDemand || {}) as {
+    enabled?: boolean | null;
+    individualUsedUsd?: number;
+    individualLimitUsd?: number;
+    individualRemainingUsd?: number;
+    percentUsed?: number;
+  };
 
   const lines = [
     '=====================================',
@@ -154,7 +161,15 @@ export function formatHumanScan(report: AgentReport): string {
     '',
     `Plan spend (period): ${formatMoney(spend?.planUsedUsd) ?? statusLine(u.spending.status)}`,
     `Plan price: ${spend?.planPrice ?? 'UNKNOWN'}`,
-    `On-demand used: ${formatMoney((spend?.onDemand as { individualUsedUsd?: number } | undefined)?.individualUsedUsd) ?? 'UNKNOWN'}`,
+    `On-demand: ${onDemand.enabled === true ? 'ON' : 'OFF'}`,
+    `On-demand used: ${formatMoney(onDemand?.individualUsedUsd) ?? 'UNKNOWN'}`,
+    `On-demand cap: ${formatMoney(onDemand?.individualLimitUsd) ?? 'UNKNOWN'}`,
+    `On-demand remaining: ${formatMoney(onDemand?.individualRemainingUsd) ?? 'UNKNOWN'}`,
+    `On-demand usage: ${
+      typeof onDemand?.percentUsed === 'number'
+        ? `${onDemand.percentUsed.toFixed(1)}%`
+        : 'UNKNOWN'
+    }`,
     '',
     '## History',
     '',
