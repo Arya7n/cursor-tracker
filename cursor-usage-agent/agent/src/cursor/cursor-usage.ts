@@ -42,7 +42,7 @@ export async function discoverUsage(): Promise<{
   const live = await fetchPlanUsageSnapshot();
 
   const usageDiscovery: DiscoverySourceResult = {
-    source: 'DashboardService/GetCurrentPeriodUsage + GetPlanInfo',
+    source: 'DashboardService/GetCurrentPeriodUsage + GetPlanInfo + GetHardLimit',
     available: live.available,
     fields: live.available
       ? [
