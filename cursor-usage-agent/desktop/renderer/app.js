@@ -23,6 +23,11 @@ function formatPct(n) {
   return `${Math.round(n * 10) / 10}%`;
 }
 
+function formatUsd(n) {
+  if (n == null || Number.isNaN(n)) return '—';
+  return `$${Number(n).toFixed(2)}`;
+}
+
 function relativeTime(iso) {
   if (!iso) return '—';
   const t = new Date(iso).getTime();
@@ -83,6 +88,28 @@ function renderUsage(data) {
   $('apiBar').style.width = `${api == null ? 0 : Math.min(100, api)}%`;
   $('autoPct').textContent = formatPct(auto);
   $('apiPct').textContent = formatPct(api);
+
+  const odBlock = $('onDemandBlock');
+  if (odBlock) {
+    odBlock.hidden = false;
+    const on = Boolean(s.onDemandEnabled);
+    $('onDemandStatus').textContent = on ? 'On' : 'Off';
+    const extra = $('onDemandPct');
+    if (typeof s.onDemandPercent === 'number') {
+      extra.hidden = false;
+      extra.textContent = `${formatPct(s.onDemandPercent)} of cap`;
+    } else if (
+      on &&
+      typeof s.afterIncludedUsd === 'number' &&
+      s.afterIncludedUsd > 0
+    ) {
+      extra.hidden = false;
+      extra.textContent = `${formatUsd(s.afterIncludedUsd)} after included`;
+    } else {
+      extra.hidden = true;
+      extra.textContent = '';
+    }
+  }
 
   const history = $('history');
   history.innerHTML = '';
