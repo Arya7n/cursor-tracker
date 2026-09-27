@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UsageBar } from '@/components/UsageMeter';
+import { UsageBar, OnDemandStatus } from '@/components/UsageMeter';
 import {
   cycleLabel,
   daysLeft,
@@ -19,6 +19,12 @@ type DeveloperRow = {
   percent: number | null;
   autoPercent: number | null;
   apiPercent: number | null;
+  onDemandUsedUsd: number | null;
+  onDemandLimitUsd: number | null;
+  onDemandRemainingUsd: number | null;
+  onDemandPercent: number | null;
+  onDemandEnabled: boolean;
+  afterIncludedUsd: number | null;
   displayMessage: string | null;
   billingCycleStart: string | null;
   billingCycleEnd: string | null;
@@ -33,11 +39,12 @@ type Overview = {
     activeDevelopers: number;
     devices?: number;
     averageUsagePercent: number | null;
+    onDemandDevelopers?: number;
   };
   developers: DeveloperRow[];
 };
 
-type SortId = 'name' | 'usage' | 'sync';
+type SortId = 'name' | 'usage' | 'ondemand' | 'sync';
 type PageSize = 5 | 10 | 25 | 50 | 'all';
 const PAGE_SIZES: PageSize[] = [5, 10, 25, 50, 'all'];
 
@@ -144,6 +151,11 @@ export default function AdminDashboard() {
     });
     next.sort((a, b) => {
       if (sort === 'usage') return (b.percent ?? -1) - (a.percent ?? -1);
+      if (sort === 'ondemand') {
+        const on = (v: DeveloperRow) => (v.onDemandEnabled ? 1 : 0);
+        const extra = (v: DeveloperRow) => v.afterIncludedUsd ?? v.onDemandPercent ?? -1;
+        return on(b) - on(a) || extra(b) - extra(a);
+      }
       if (sort === 'sync') {
         return (
           new Date(b.lastSeenAt ?? 0).getTime() -
@@ -184,8 +196,8 @@ export default function AdminDashboard() {
             Team usage
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">
-            Included Cursor usage for the current billing cycle — same % the IDE
-            shows. Agents report about every 20 minutes.
+            Included Cursor usage for the current billing cycle, plus whether
+            on-demand spending is enabled in Cursor this cycle.
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
@@ -227,7 +239,7 @@ export default function AdminDashboard() {
         </div>
       ) : null}
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-3">
+      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Developers"
           value={String(t?.developers ?? 0)}
@@ -241,10 +253,22 @@ export default function AdminDashboard() {
           delay="anim-rise-delay-2"
         />
         <StatCard
+          label="On-demand"
+          value={
+            (t?.onDemandDevelopers ?? 0) > 0 ? 'On' : 'Off'
+          }
+          hint={
+            t?.developers
+              ? `${t.onDemandDevelopers ?? 0} of ${t.developers} enabled this cycle`
+              : 'Waiting for the first sync'
+          }
+          delay="anim-rise-delay-3"
+        />
+        <StatCard
           label="Devices"
           value={String(t?.devices ?? rows.reduce((n, d) => n + d.deviceCount, 0))}
           hint="Enrolled machines"
-          delay="anim-rise-delay-3"
+          delay="anim-rise-delay-4"
         />
       </section>
 
@@ -274,6 +298,7 @@ export default function AdminDashboard() {
               options={[
                 { value: 'name', label: 'Name' },
                 { value: 'usage', label: 'Usage' },
+                { value: 'ondemand', label: 'On-demand' },
                 { value: 'sync', label: 'Last sync' },
               ]}
             />
@@ -317,13 +342,14 @@ export default function AdminDashboard() {
               ))}
             </ul>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[44rem] text-left text-sm">
+              <table className="w-full min-w-[52rem] text-left text-sm">
                 <thead>
                   <tr className="border-b border-teal-900/8 font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-400">
                     <th className="px-5 py-3 font-medium">Developer</th>
                     <th className="px-3 py-3 font-medium">Plan</th>
                     <th className="px-3 py-3 font-medium">Cycle</th>
                     <th className="px-3 py-3 font-medium">Usage</th>
+                    <th className="px-3 py-3 font-medium">On-demand</th>
                     <th className="px-5 py-3 font-medium">Last sync</th>
                     <th className="px-4 py-3 font-medium">
                       <span className="sr-only">Remove</span>
@@ -541,6 +567,10 @@ function DeveloperCard({
           </span>
         </div>
         <UsageBar percent={d.percent} />
+        <OnDemandStatus
+          on={d.onDemandEnabled}
+          percent={d.onDemandPercent}
+        />
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-zinc-500">
           <span>{cycleLabel(d.billingCycleStart, d.billingCycleEnd)}</span>
           <span>{cycleLeftLabel(d.billingCycleEnd)}</span>
@@ -608,6 +638,12 @@ function DeveloperTableRow({
       </td>
       <td className="px-3 py-3.5">
         <UsageBar percent={d.percent} className="min-w-[8.5rem]" />
+      </td>
+      <td className="px-3 py-3.5">
+        <OnDemandStatus
+          on={d.onDemandEnabled}
+          percent={d.onDemandPercent}
+        />
       </td>
       <td className="whitespace-nowrap px-5 py-3.5 text-zinc-600">
         {relativeTime(d.lastSeenAt)}

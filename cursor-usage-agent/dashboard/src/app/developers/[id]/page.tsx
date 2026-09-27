@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UsageBar, UsageRing } from '@/components/UsageMeter';
-import { cursorUsagePercent } from '@/lib/percent';
+import { cursorUsagePercent, pickOnDemand } from '@/lib/percent';
 import {
   asNumber,
   asRecord,
   asString,
   cycleLabel,
   daysLeft,
+  formatUsd,
   initials,
   relativeTime,
 } from '@/lib/format';
@@ -70,6 +71,7 @@ export default function DeveloperDetailPage() {
   const left = daysLeft(cycle?.end);
   const autoPercent = asNumber(usage.autoPercentUsed);
   const apiPercent = asNumber(usage.apiPercentUsed);
+  const onDemand = pickOnDemand(usage, cycle);
 
   async function removeFromHub() {
     if (!params.id) return;
@@ -176,6 +178,46 @@ export default function DeveloperDetailPage() {
               </div>
             </section>
           )}
+
+          {latest?.usage ? (
+            <section className="mt-4 rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-sm sm:p-5">
+              <h2 className="text-sm font-semibold text-zinc-900">On-demand</h2>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <Fact
+                  label="Status"
+                  value={onDemand.on ? 'On' : 'Off'}
+                  hint={
+                    onDemand.inCurrentCycle
+                      ? 'This billing cycle only'
+                      : 'No report for the current billing cycle'
+                  }
+                />
+                {onDemand.on && onDemand.percent != null ? (
+                  <Fact
+                    label="Of on-demand cap"
+                    value={formatUsd(onDemand.usedUsd)}
+                    hint={`${onDemand.percent.toFixed(1)}% of ${formatUsd(onDemand.limitUsd)} this cycle`}
+                  />
+                ) : onDemand.on && onDemand.afterIncludedUsd != null ? (
+                  <Fact
+                    label="On-demand used"
+                    value={formatUsd(onDemand.afterIncludedUsd)}
+                    hint="This billing cycle"
+                  />
+                ) : (
+                  <Fact
+                    label="On-demand used"
+                    value="—"
+                    hint={
+                      onDemand.on
+                        ? 'Enabled this cycle, no on-demand spend reported'
+                        : 'On-demand spending is disabled in Cursor'
+                    }
+                  />
+                )}
+              </dl>
+            </section>
+          ) : null}
 
           <section className="mt-4 rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-900">Devices</h2>
