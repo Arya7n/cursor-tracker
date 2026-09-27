@@ -3,6 +3,16 @@ export function formatPct(value: number | null | undefined) {
   return `${value.toFixed(1)}%`;
 }
 
+export function formatUsd(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export function clampPct(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return 0;
   return Math.min(100, Math.max(0, value));
@@ -44,6 +54,18 @@ export function daysLeft(end: string | null | undefined) {
   const ms = new Date(end).getTime() - Date.now();
   if (!Number.isFinite(ms)) return null;
   return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+}
+
+export function inCurrentBillingCycle(
+  start: string | null | undefined,
+  end: string | null | undefined,
+  now = Date.now(),
+) {
+  if (!start || !end) return false;
+  const a = new Date(start).getTime();
+  const b = new Date(end).getTime();
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return false;
+  return now >= a && now <= b;
 }
 
 export function initials(name: string) {
