@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ensureSchema, getSql } from './db';
-import { cursorUsagePercent } from './percent';
+import { cursorUsagePercent, pickOnDemand } from './percent';
 
 export interface Employee {
   id: string;
@@ -432,6 +432,10 @@ export async function overview() {
       .map((d) => d.lastSeenAt)
       .sort()
       .at(-1);
+    const onDemand = pickOnDemand(usage, {
+      start: str(billing.start),
+      end: str(billing.end),
+    });
     return {
       id: emp.id,
       email: emp.email,
@@ -442,6 +446,12 @@ export async function overview() {
         typeof usage.autoPercentUsed === 'number' ? usage.autoPercentUsed : null,
       apiPercent:
         typeof usage.apiPercentUsed === 'number' ? usage.apiPercentUsed : null,
+      onDemandUsedUsd: onDemand.usedUsd,
+      onDemandLimitUsd: onDemand.limitUsd,
+      onDemandRemainingUsd: onDemand.remainingUsd,
+      onDemandPercent: onDemand.percent,
+      onDemandEnabled: onDemand.on,
+      afterIncludedUsd: onDemand.afterIncludedUsd,
       displayMessage:
         typeof usage.displayMessage === 'string' ? usage.displayMessage : null,
       billingCycleStart: str(billing.start),
@@ -455,6 +465,7 @@ export async function overview() {
   const percents = rows
     .map((r) => r.percent)
     .filter((n): n is number => n != null);
+  const onDemandActive = rows.filter((r) => r.onDemandEnabled).length;
   const activeCutoff = Date.now() - 24 * 60 * 60 * 1000;
   const active = rows.filter(
     (r) => r.lastSeenAt && new Date(r.lastSeenAt).getTime() >= activeCutoff,
@@ -471,6 +482,7 @@ export async function overview() {
           : null,
       highestUsagePercent: percents.length ? Math.max(...percents) : null,
       lowestUsagePercent: percents.length ? Math.min(...percents) : null,
+      onDemandDevelopers: onDemandActive,
     },
     developers: rows.sort((a, b) => a.name.localeCompare(b.name)),
   };
@@ -552,6 +564,10 @@ export async function myUsage(token: string) {
     .filter(Boolean)
     .sort()
     .at(-1);
+  const onDemand = pickOnDemand(usage, {
+    start: typeof billing.start === 'string' ? billing.start : null,
+    end: typeof billing.end === 'string' ? billing.end : null,
+  });
 
   return {
     ...detail,
@@ -565,6 +581,12 @@ export async function myUsage(token: string) {
         typeof usage.autoPercentUsed === 'number' ? usage.autoPercentUsed : null,
       apiPercent:
         typeof usage.apiPercentUsed === 'number' ? usage.apiPercentUsed : null,
+      onDemandUsedUsd: onDemand.usedUsd,
+      onDemandLimitUsd: onDemand.limitUsd,
+      onDemandRemainingUsd: onDemand.remainingUsd,
+      onDemandPercent: onDemand.percent,
+      onDemandEnabled: onDemand.on,
+      afterIncludedUsd: onDemand.afterIncludedUsd,
       displayMessage:
         typeof usage.displayMessage === 'string' ? usage.displayMessage : null,
       billingCycleStart: typeof billing.start === 'string' ? billing.start : null,
