@@ -8,6 +8,7 @@ export function buildSyncPayload(report: Record<string, unknown>) {
   const percentage = (usage.percentage || {}) as Record<string, unknown>;
   const billing = (usage.billingCycle || {}) as Record<string, unknown>;
   const spending = (usage.spending || {}) as Record<string, unknown>;
+  const onDemand = flattenOnDemand(spending);
 
   return {
     timestamp: report.timestamp,
@@ -28,6 +29,7 @@ export function buildSyncPayload(report: Record<string, unknown>) {
       autoPercentUsed: percentage.autoPercentUsed ?? null,
       apiPercentUsed: percentage.apiPercentUsed ?? null,
       displayMessage: current.displayMessage ?? null,
+      ...onDemand,
     },
     billingCycle: {
       start: billing.start ?? null,
@@ -36,6 +38,54 @@ export function buildSyncPayload(report: Record<string, unknown>) {
     spending: {
       planPrice: spending.planPrice ?? null,
       planUsedUsd: spending.planUsedUsd ?? null,
+      ...onDemand,
     },
+  };
+}
+
+function num(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+function flattenOnDemand(spending: Record<string, unknown>) {
+  const nested =
+    spending.onDemand && typeof spending.onDemand === 'object'
+      ? (spending.onDemand as Record<string, unknown>)
+      : {};
+  const used = num(nested.individualUsedUsd) ?? num(spending.onDemandUsedUsd);
+  const limit = num(nested.individualLimitUsd) ?? num(spending.onDemandLimitUsd);
+  const remaining =
+    num(nested.individualRemainingUsd) ??
+    num(spending.onDemandRemainingUsd) ??
+    (used != null && limit != null
+      ? Math.max(0, Math.round((limit - used) * 100) / 100)
+      : null);
+  const percent =
+    num(nested.percentUsed) ??
+    num(spending.onDemandPercentUsed) ??
+    (used != null && limit != null && limit > 0
+      ? Math.round((used / limit) * 1000) / 10
+      : null);
+  const limitType =
+    typeof nested.limitType === 'string'
+      ? nested.limitType
+      : typeof spending.onDemandLimitType === 'string'
+        ? spending.onDemandLimitType
+        : null;
+  const enabled =
+    typeof nested.enabled === 'boolean'
+      ? nested.enabled
+      : typeof spending.onDemandEnabled === 'boolean'
+        ? spending.onDemandEnabled
+        : limit != null && limit > 0
+          ? true
+          : null;
+  return {
+    onDemandUsedUsd: used,
+    onDemandLimitUsd: limit,
+    onDemandRemainingUsd: remaining,
+    onDemandPercentUsed: percent,
+    onDemandLimitType: limitType,
+    onDemandEnabled: enabled,
   };
 }
