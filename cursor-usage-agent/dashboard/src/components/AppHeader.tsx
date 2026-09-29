@@ -26,8 +26,8 @@ export function AppHeader() {
     <>
       <header className="fixed inset-x-0 top-0 z-50 border-b border-teal-900/10 bg-[#f7fbf9]/80 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-6">
-          <Link href="/" className="group flex min-w-0 items-center gap-2.5">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-800 text-[11px] font-bold tracking-wide text-white shadow-[0_8px_20px_rgba(15,118,110,0.28)] transition group-hover:scale-[1.03]">
+          <Link href="/" className="group flex min-w-0 items-center gap-2.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-800 text-[11px] font-bold tracking-wide text-white shadow-[0_8px_20px_rgba(15,118,110,0.28)] ring-1 ring-white/20 transition group-hover:scale-[1.03]">
               CU
             </span>
             <span className="min-w-0 leading-tight">
@@ -50,9 +50,9 @@ export function AppHeader() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition sm:text-sm ${
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40 sm:text-sm ${
                       active
-                        ? 'bg-teal-800 text-white'
+                        ? 'bg-teal-800 text-white shadow-sm'
                         : 'text-zinc-500 hover:bg-teal-50 hover:text-teal-900'
                     }`}
                   >
@@ -64,7 +64,7 @@ export function AppHeader() {
             <button
               type="button"
               onClick={() => void logout()}
-              className="rounded-xl border border-zinc-200/90 bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-teal-700/30 hover:text-teal-900 sm:text-sm"
+              className="rounded-xl border border-zinc-200/90 bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/60 sm:text-sm"
             >
               Sign out
             </button>
