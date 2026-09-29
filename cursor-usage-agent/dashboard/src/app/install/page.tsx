@@ -176,7 +176,7 @@ export default function EmployeeInstallPage() {
       ) : null}
 
       <section className="panel anim-rise anim-rise-delay-4 mt-8 overflow-hidden rounded-2xl">
-        <div className="flex gap-1 overflow-x-auto border-b border-teal-900/8 p-2">
+        <div className="flex gap-1 overflow-x-auto border-b border-teal-900/8 bg-teal-950/[0.03] p-2">
           {(
             [
               { id: 'windows', label: 'Windows' },
@@ -188,10 +188,10 @@ export default function EmployeeInstallPage() {
               key={tab.id}
               type="button"
               onClick={() => setOs(tab.id)}
-              className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-sm font-semibold sm:flex-none ${
+              className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40 sm:flex-none sm:px-4 ${
                 os === tab.id
-                  ? 'bg-teal-800 text-white'
-                  : 'text-zinc-600 hover:bg-teal-50'
+                  ? 'bg-teal-800 text-white shadow-sm'
+                  : 'text-zinc-600 hover:bg-white hover:text-teal-900'
               }`}
             >
               {tab.label}
@@ -355,7 +355,7 @@ function DownloadPanel({
           </div>
           <a
             href={href}
-            className="inline-flex items-center justify-center rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
+            className="inline-flex items-center justify-center rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(15,118,110,0.25)] hover:bg-teal-700"
           >
             {label}
           </a>
@@ -365,9 +365,9 @@ function DownloadPanel({
       )}
       {extra}
       {hubUrl ? (
-        <p className="rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+        <p className="rounded-xl border border-teal-900/10 bg-teal-50/70 px-3 py-2 text-xs text-zinc-600">
           Hub URL to paste in the app:{' '}
-          <code className="break-all text-zinc-900">{hubUrl}</code>
+          <code className="break-all font-medium text-zinc-900">{hubUrl}</code>
         </p>
       ) : null}
     </div>
