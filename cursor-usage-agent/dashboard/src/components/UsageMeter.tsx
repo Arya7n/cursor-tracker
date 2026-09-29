@@ -4,6 +4,14 @@ import {
 } from '@/lib/format';
 
 const teal = '#0f766e';
+const amber = '#c2410c';
+const rose = '#9f1239';
+
+function meterTone(percent: number | null | undefined): 'ok' | 'warn' | 'hot' {
+  if (percent == null || !Number.isFinite(percent) || percent < 80) return 'ok';
+  if (percent < 95) return 'warn';
+  return 'hot';
+}
 
 export function UsageBar({
   percent,
@@ -13,14 +21,27 @@ export function UsageBar({
   className?: string;
 }) {
   const width = clampPct(percent);
+  const tone = meterTone(percent);
+  const fill =
+    tone === 'hot'
+      ? 'bg-gradient-to-r from-rose-800 to-rose-500'
+      : tone === 'warn'
+        ? 'bg-gradient-to-r from-orange-700 to-amber-400'
+        : 'bg-gradient-to-r from-teal-700 to-teal-400';
+  const label =
+    tone === 'hot'
+      ? 'text-rose-900'
+      : tone === 'warn'
+        ? 'text-orange-800'
+        : 'text-zinc-800';
   return (
     <div className={`min-w-0 w-full ${className}`}>
-      <span className="font-mono text-sm font-semibold tabular-nums text-zinc-800">
+      <span className={`font-mono text-sm font-semibold tabular-nums ${label}`}>
         {formatPct(percent)}
       </span>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-teal-900/8">
         <div
-          className="meter-fill h-full rounded-full bg-gradient-to-r from-teal-700 to-teal-400"
+          className={`meter-fill h-full rounded-full ${fill}`}
           style={{ width: `${width}%` }}
         />
       </div>
@@ -36,6 +57,8 @@ export function UsageRing({
   caption?: string;
 }) {
   const value = clampPct(percent);
+  const tone = meterTone(percent);
+  const stroke = tone === 'hot' ? rose : tone === 'warn' ? amber : teal;
   const left =
     percent != null && Number.isFinite(percent)
       ? clampPct(100 - percent)
@@ -65,7 +88,7 @@ export function UsageRing({
           cy="64"
           r={r}
           fill="none"
-          stroke={teal}
+          stroke={stroke}
           strokeWidth="10"
           strokeLinecap="round"
           strokeDasharray={`${dash} ${c}`}
@@ -75,7 +98,15 @@ export function UsageRing({
       <div className="min-w-0">
         <div className="flex flex-wrap items-end justify-center gap-x-6 gap-y-3 sm:justify-start">
           <div>
-            <p className="font-mono text-3xl font-semibold tracking-tight tabular-nums text-zinc-900 sm:text-4xl">
+            <p
+              className={`font-mono text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl ${
+                tone === 'hot'
+                  ? 'text-rose-900'
+                  : tone === 'warn'
+                    ? 'text-orange-800'
+                    : 'text-zinc-900'
+              }`}
+            >
               {formatPct(percent)}
             </p>
             <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
