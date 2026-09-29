@@ -678,7 +678,13 @@ function StatCard({
   delay?: string;
 }) {
   return (
-    <div className={`panel anim-rise ${delay} min-w-0 rounded-2xl px-4 py-4`}>
+    <div
+      className={`panel anim-rise ${delay} relative min-w-0 overflow-hidden rounded-2xl px-4 py-4`}
+    >
+      <span
+        aria-hidden
+        className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-teal-700/80"
+      />
       <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-teal-800/80">
         {label}
       </p>
