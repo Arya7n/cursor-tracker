@@ -79,8 +79,13 @@ h1 {
 
 .section-title {
   margin: 16px 0 8px;
-  font-size: 0.8rem;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 0.72rem;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 label {
@@ -292,9 +297,13 @@ dd {
 
 .facts {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 14px;
+}
+
+.facts > div:first-child {
+  grid-column: 1 / -1;
 }
 
 .facts > div {
@@ -362,6 +371,13 @@ dd {
   background: #fafafa;
   margin-bottom: 6px;
   font-size: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.history li:hover,
+.devices li:hover {
+  background: #f4f7f6;
+  border-color: var(--line);
 }
 
 .history li span:last-child,
