@@ -103,6 +103,15 @@ input[type='text'] {
   font-size: 0.9rem;
   color: var(--ink);
   background: white;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+input[type='url']:focus,
+input[type='password']:focus,
+input[type='text']:focus {
+  outline: none;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgb(15 118 110 / 16%);
 }
 
 .row {
@@ -120,6 +129,16 @@ button {
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
 }
 
 button:disabled {
@@ -132,10 +151,19 @@ button:disabled {
   color: white;
 }
 
+.primary:hover:not(:disabled) {
+  background: #0f766e;
+}
+
 .secondary {
   background: white;
   color: var(--ink);
   border: 1px solid var(--line);
+}
+
+.secondary:hover:not(:disabled) {
+  background: #f4f7f6;
+  border-color: #d4d4d8;
 }
 
 dl {
