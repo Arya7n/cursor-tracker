@@ -67,7 +67,11 @@ function renderUsage(data) {
   $('userEmail').textContent = s.email || '—';
   const pct = s.percent;
   $('usagePct').textContent = formatPct(pct);
-  $('usageRing').style.setProperty('--p', pct == null ? 0 : Math.min(100, Math.max(0, pct)));
+  const ring = $('usageRing');
+  const clamped = pct == null ? 0 : Math.min(100, Math.max(0, pct));
+  ring.style.setProperty('--p', clamped);
+  ring.classList.toggle('warn', pct != null && pct >= 80 && pct < 95);
+  ring.classList.toggle('hot', pct != null && pct >= 95);
   $('plan').textContent = s.plan || '—';
   $('cycle').textContent = cycleLabel(s.billingCycleStart, s.billingCycleEnd);
   const left = daysLeft(s.billingCycleEnd);

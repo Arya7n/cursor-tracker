@@ -260,6 +260,14 @@ dd {
   background: white;
 }
 
+.ring.warn {
+  background: conic-gradient(#c2410c calc(var(--p) * 1%), #e4e4e7 0);
+}
+
+.ring.hot {
+  background: conic-gradient(#9f1239 calc(var(--p) * 1%), #e4e4e7 0);
+}
+
 .ring span {
   position: relative;
   font-size: 0.85rem;
